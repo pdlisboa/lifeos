@@ -1,0 +1,38 @@
+# Fatia 0 — escopo mínimo: api + postgres.
+# Caddy (TLS público), worker (fila de jobs) e backup entram em fatias
+# seguintes, quando houver o que servir/consumir/proteger de fato
+# (01-arquitetura.md §10.1, roadmap §14).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-lifeos}
+      POSTGRES_USER: ${POSTGRES_USER:-lifeos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lifeos}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-lifeos}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-lifeos}?sslmode=disable
+      LISTEN_ADDR: ":8080"
+      ENV: ${ENV:-production}
+    ports:
+      - "${API_PORT:-8080}:8080"
+
+volumes:
+  pgdata:

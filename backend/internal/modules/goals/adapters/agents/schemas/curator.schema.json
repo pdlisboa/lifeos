@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "curator.schema.json",
+  "title": "Saída do Curador (A4)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["resources"],
+  "properties": {
+    "resources": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 3,
+      "description": "Lista vazia é resposta correta quando a busca não achou nada bom.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["url", "title", "kind", "whyNow", "estimatedMin", "foundVia"],
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^https?://",
+            "description": "Encontrada na busca desta chamada. O sistema verifica HTTP antes de exibir."
+          },
+          "title": { "type": "string", "minLength": 3 },
+          "kind": {
+            "type": "string",
+            "enum": ["article", "video", "repo", "exercise", "podcast", "doc", "book"]
+          },
+          "whyNow": {
+            "type": "string",
+            "minLength": 30,
+            "description": "Por que ESTE recurso, para ESTA pessoa, NESTE nível, para ESTA lacuna."
+          },
+          "estimatedMin": { "type": "integer", "minimum": 1, "maximum": 600 },
+          "foundVia": {
+            "type": "string",
+            "description": "A query de busca usada. Rastreabilidade contra links inventados."
+          }
+        }
+      }
+    },
+    "note": {
+      "type": ["string", "null"],
+      "description": "Obrigatório quando resources está vazio: o que foi buscado e por que não serviu."
+    }
+  }
+}

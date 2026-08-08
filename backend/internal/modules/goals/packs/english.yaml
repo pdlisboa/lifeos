@@ -1,0 +1,214 @@
+# Domain Pack: Inglês
+# Mesma estrutura do pack golang.yaml. Se este arquivo exigir qualquer mudança
+# no núcleo do módulo, a abstração está errada — ver 00-negocio.md §8.
+
+id: english
+version: 1
+label: Inglês
+archetype: skill
+language: en
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Descritores calibrados para o objetivo declarado: consumir conteúdo técnico
+# sem legenda e escrever/falar em contexto profissional de tecnologia.
+# Não é um pack de inglês geral — é de inglês para trabalhar com software.
+# ─────────────────────────────────────────────────────────────────────────────
+competencies:
+
+  - key: listening
+    label: Listening
+    weight: 0.20
+    evidence_signals:
+      - transcrição de trechos, lacunas identificadas, velocidade do áudio
+    levels:
+      0: "Não acompanho nada sem legenda."
+      1: "Entendo palavras soltas; preciso de legenda em português."
+      2: "Acompanho com legenda em inglês; sem ela, perco o fio."
+      3: "Acompanho vídeo técnico em ritmo pausado sem legenda, perdendo detalhes."
+      4: "Acompanho conversa técnica em velocidade normal e identifico o que não entendi."
+      5: "Acompanho sotaques variados e conversa informal rápida sem esforço consciente."
+
+  - key: speaking
+    label: Speaking
+    weight: 0.25
+    evidence_signals:
+      - gravações, tempo até travar, uso de muletas em português
+    levels:
+      0: "Não consigo formar frases faladas."
+      1: "Falo frases decoradas; travo em qualquer desvio."
+      2: "Falo sobre temas conhecidos com pausas longas para buscar palavra."
+      3: "Falo 3 minutos sobre um tema técnico com pausas naturais e sem trocar para português."
+      4: "Discuto uma decisão técnica, discordo e me explico sem preparação prévia."
+      5: "Conduzo uma reunião ou apresentação técnica com naturalidade."
+
+  - key: active_vocabulary
+    label: Vocabulário ativo
+    weight: 0.20
+    evidence_signals:
+      - palavras usadas espontaneamente vs reconhecidas, repetição de muletas
+    levels:
+      0: "Vocabulário mínimo."
+      1: "Reconheço muitas palavras, uso poucas."
+      2: "Uso um núcleo pequeno e repito as mesmas palavras (`good`, `thing`, `do`)."
+      3: "Uso vocabulário técnico da minha área com precisão."
+      4: "Escolho entre sinônimos pelo registro (formal/informal) e uso phrasal verbs corretamente."
+      5: "Uso expressões idiomáticas naturalmente e sem soar decorado."
+
+  - key: writing
+    label: Escrita
+    weight: 0.15
+    evidence_signals:
+      - PR, issue, e-mail, documentação; uso de tradutor
+    levels:
+      0: "Só escrevo com tradutor."
+      1: "Escrevo frases curtas, com estrutura do português."
+      2: "Escrevo um parágrafo compreensível, revisando muito."
+      3: "Escrevo issue ou PR técnico sem tradutor, em tempo razoável."
+      4: "Ajusto o tom conforme o destinatário e escrevo documentação clara."
+      5: "Escrevo texto técnico que passaria por escrito por nativo."
+
+  - key: applied_grammar
+    label: Gramática aplicada
+    weight: 0.10
+    evidence_signals:
+      - artigos, preposições, tempos verbais, concordância
+    levels:
+      0: "Estrutura frequentemente incompreensível."
+      1: "Erros que atrapalham o entendimento."
+      2: "Erros recorrentes que não impedem o entendimento (artigos, preposições)."
+      3: "Erros pontuais; uso tempos verbais corretamente na maior parte."
+      4: "Uso condicionais e voz passiva naturalmente; erros são raros."
+      5: "Gramática deixou de ser algo em que eu penso."
+
+  - key: pronunciation
+    label: Pronúncia
+    weight: 0.10
+    evidence_signals:
+      - gravações, inteligibilidade, sons específicos (th, ed, vogais)
+    levels:
+      0: "Leio como se fosse português."
+      1: "Pronúncia dificulta o entendimento com frequência."
+      2: "Sou entendido, mas erro sons específicos consistentemente (th, -ed, vogais longas)."
+      3: "Sou entendido sem esforço do ouvinte; sotaque presente mas não atrapalha."
+      4: "Acerto ritmo e ênfase da frase, não só os sons isolados."
+      5: "Pronúncia clara e natural, com entonação adequada ao sentido."
+
+# ─────────────────────────────────────────────────────────────────────────────
+evidence_types:
+  - audio_recording
+  - written_text
+  - listening_log
+  - shadowing_clip
+
+practice_formats:
+
+  - key: shadowing
+    label: Shadowing
+    minutes: [10, 20]
+    good_for: [pronunciation, listening, speaking]
+    shape: |
+      Ouvir um trecho curto de falante nativo e repetir imitando ritmo e entonação.
+      Evidência: gravação sua do mesmo trecho.
+    example: "Pegue 60s de uma talk da GopherCon e repita 3 vezes, gravando a última."
+
+  - key: listening_gap
+    label: Caça-lacuna
+    minutes: [10, 20]
+    good_for: [listening, active_vocabulary]
+    shape: |
+      Assistir sem legenda e transcrever apenas as frases que NÃO entendeu.
+      A lacuna é o dado — é ela que vira material do Curador.
+    example: "10 min de vídeo técnico sem legenda; anote 5 frases que te escaparam."
+
+  - key: free_writing
+    label: Escrita livre
+    minutes: [15, 25]
+    good_for: [writing, applied_grammar, active_vocabulary]
+    shape: |
+      Escrever sobre um tema técnico sem tradutor, com tempo limitado.
+      Proibido revisar com ferramenta antes de submeter — o erro é o insumo.
+    example: "Escreva a descrição de um PR que troca autenticação por sessão em cookie."
+
+  - key: speaking_prompt
+    label: Fala cronometrada
+    minutes: [10, 15]
+    good_for: [speaking, pronunciation, active_vocabulary]
+    shape: |
+      Responder uma pergunta falando por N minutos, gravando, sem roteiro.
+    example: "Explique em 3 min por que você escolheu Go para o backend do seu projeto."
+
+  - key: vocab_activation
+    label: Ativação de vocabulário
+    minutes: [10, 15]
+    good_for: [active_vocabulary]
+    shape: |
+      Pegar palavras que você só RECONHECE e usá-las em frases próprias sobre
+      seu contexto real. Reconhecer não é saber usar.
+    example: "Use `trade-off`, `bottleneck` e `edge case` em frases sobre seu próprio código."
+
+milestone_library:
+
+  - title: "Assistir vídeo técnico de 10 min sem legenda e resumir"
+    competencies: [listening]
+    criteria: "Resumo cobre os pontos principais; lacunas listadas honestamente."
+    typical_level: 2
+
+  - title: "Escrever issue ou PR técnico em inglês sem tradutor"
+    competencies: [writing, applied_grammar]
+    criteria: "Texto compreensível de primeira, escrito em menos de 20 min."
+    typical_level: 3
+
+  - title: "Falar 3 minutos sobre tema técnico sem travar"
+    competencies: [speaking, pronunciation]
+    criteria: "Gravação contínua, sem trocar para português, com pausas naturais."
+    typical_level: 3
+
+  - title: "Acompanhar podcast técnico em velocidade normal"
+    competencies: [listening, active_vocabulary]
+    criteria: "Consegue resumir 20 min de podcast sem repetir trechos."
+    typical_level: 4
+
+  - title: "Participar de discussão técnica assíncrona (issue longa) em inglês"
+    competencies: [writing, active_vocabulary]
+    criteria: "Discorda, argumenta e propõe alternativa, com tom adequado."
+    typical_level: 4
+
+  - title: "Apresentar uma decisão técnica ao vivo em inglês"
+    competencies: [speaking, pronunciation, active_vocabulary]
+    criteria: "Apresentação de 5 min com perguntas respondidas sem preparação."
+    typical_level: 5
+
+curation:
+  preferred_domains:
+    - youtube.com
+    - podcasts.apple.com
+    - bbc.co.uk/learningenglish
+    - dictionary.cambridge.org
+    - youglish.com
+  avoid:
+    - "conteúdo de 'inglês fluente em 30 dias'"
+    - "listas de vocabulário sem contexto de uso"
+    - "material que ensina apenas inglês geral, fora do contexto de tecnologia"
+  seeds:
+    - "GopherCon e conferências técnicas no YouTube (legendas desligáveis)"
+    - "YouGlish para ouvir uma palavra específica em uso real"
+    - "Podcasts técnicos com transcrição disponível"
+
+progress_signals:
+  - "parou de traduzir mentalmente antes de falar"
+  - "usou uma palavra que antes só reconhecia"
+  - "escreveu sem tradutor pela primeira vez"
+  - "identificou sozinho o próprio erro recorrente"
+  - "reduziu o tempo até começar a falar"
+  - "acompanhou áudio em velocidade normal sem repetir"
+
+probe_seeds:
+  - competency: listening
+    question: "Você consegue assistir um vídeo técnico em inglês sem legenda?"
+    followups:
+      yes: "Em velocidade normal ou pausado? Perde muita coisa?"
+      no:  "Consegue com legenda em inglês, ou só com legenda em português?"
+  - competency: writing
+    question: "Você escreve commits, issues ou PRs em inglês? Usa tradutor?"
+  - competency: speaking
+    question: "Quando foi a última vez que você falou inglês em voz alta?"

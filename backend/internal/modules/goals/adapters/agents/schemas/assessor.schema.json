@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "assessor.schema.json",
+  "title": "Saída do Avaliador (A3)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["summary", "scores", "strengths", "gaps"],
+  "properties": {
+    "summary": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 500,
+      "description": "Duas ou três frases sobre o que esta evidência mostra."
+    },
+    "scores": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 6,
+      "description": "Apenas competências que a evidência realmente demonstra.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["competencyKey", "proposedLevel", "observed"],
+        "properties": {
+          "competencyKey": { "type": "string" },
+          "proposedLevel": { "type": "integer", "minimum": 0, "maximum": 5 },
+          "observed": {
+            "type": "string",
+            "minLength": 20,
+            "description": "O que NA evidência sustenta esta nota. Sem isto a nota é inválida."
+          }
+        }
+      }
+    },
+    "strengths": {
+      "type": "array",
+      "maxItems": 4,
+      "description": "Lista vazia é resposta legítima. Não elogie por elogiar.",
+      "items": { "type": "string", "minLength": 10 }
+    },
+    "gaps": {
+      "type": "array",
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["issue", "howToFix"],
+        "properties": {
+          "competencyKey": { "type": ["string", "null"] },
+          "issue": { "type": "string", "minLength": 15 },
+          "where": {
+            "type": ["string", "null"],
+            "description": "Localização concreta, ex: 'linha 14', 'segunda frase'."
+          },
+          "howToFix": {
+            "type": "string",
+            "minLength": 15,
+            "description": "Acionável. 'Melhore X' não passa na validação semântica."
+          }
+        }
+      }
+    },
+    "suggestedNextFocus": {
+      "type": ["string", "null"],
+      "description": "Chave da competência que mais se beneficiaria da próxima prática."
+    }
+  }
+}

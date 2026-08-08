@@ -1,0 +1,245 @@
+# Domain Pack: Go
+# O núcleo do módulo Metas não sabe nada sobre Go. Ele sabe ler este arquivo.
+# Ver docs/modulos/metas/00-negocio.md §8 e docs/modulos/metas/04-agentes.md
+
+id: golang
+version: 1
+label: Go
+archetype: skill
+language: go
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Competências. Os descritores são OBSERVÁVEIS de propósito: descrevem o que
+# você consegue fazer, não o que você "entende". "Entender goroutines" não é
+# avaliável; "escrever um worker pool sem consultar" é.
+# Pesos somam 1.0.
+# ─────────────────────────────────────────────────────────────────────────────
+competencies:
+
+  - key: concurrency
+    label: Concorrência
+    weight: 0.25
+    evidence_signals:
+      - go, chan, select, sync.WaitGroup, sync.Mutex, context, errgroup
+      - race conditions, deadlock, graceful shutdown
+    levels:
+      0: "Nunca escrevi uma goroutine."
+      1: "Uso `go` + `WaitGroup` copiando um exemplo, sem saber quando não usar."
+      2: "Uso channels, mas travo em buffering e às vezes causo deadlock sem entender por quê."
+      3: "Escrevo worker pool com channels e uso `select` + `context` para cancelar, sem consultar."
+      4: "Reconheço race conditions, uso `-race`, e escolho entre mutex e channel de forma justificada."
+      5: "Projeto pipelines concorrentes, explico os trade-offs e sei quando concorrência é a resposta errada."
+
+  - key: interfaces_design
+    label: Interfaces e design
+    weight: 0.20
+    evidence_signals:
+      - interface, composição de structs, injeção de dependência
+      - API pública de pacote, nomes exportados
+    levels:
+      0: "Nunca declarei uma interface."
+      1: "Declaro interfaces copiando padrão de outra linguagem (interfaces grandes, prefixo I)."
+      2: "Uso interfaces, mas as declaro junto da implementação em vez de no consumidor."
+      3: "Declaro interfaces pequenas no lado de quem consome, e uso composição em vez de herança."
+      4: "Desenho a API pública de um pacote pensando em quem vai usá-la, e escondo o resto."
+      5: "Justifico quando NÃO criar interface, e reconheço abstração prematura no meu próprio código."
+
+  - key: testing
+    label: Testes
+    weight: 0.15
+    evidence_signals:
+      - testing.T, table-driven, t.Run, httptest, testify, fakes
+      - cobertura, teste de integração
+    levels:
+      0: "Não escrevo testes."
+      1: "Escrevo um teste simples quando alguém pede."
+      2: "Escrevo testes de casos felizes; casos de borda ficam de fora."
+      3: "Uso table-driven tests e cubro casos de erro sem que ninguém peça."
+      4: "Testo concorrência com `-race`, uso `httptest`, e separo unidade de integração."
+      5: "Uso testes para guiar o design, e reconheço quando um teste está acoplado demais à implementação."
+
+  - key: error_handling
+    label: Tratamento de erros
+    weight: 0.15
+    evidence_signals:
+      - "if err != nil, fmt.Errorf, %w, errors.Is, errors.As, sentinel errors"
+      - panic/recover
+    levels:
+      0: "Ignoro erros ou uso `_`."
+      1: "Checo `err != nil` mas só faço `log` e sigo."
+      2: "Propago erros, mas perco contexto pelo caminho (retorno `err` cru)."
+      3: "Envolvo com `fmt.Errorf(\"...: %w\", err)` e uso `errors.Is/As` para decidir."
+      4: "Defino erros sentinela e tipos de erro próprios quando faz sentido para quem chama."
+      5: "Desenho a estratégia de erro de um pacote inteiro e sei quando `panic` é legítimo."
+
+  - key: idioms
+    label: Idiomas e legibilidade
+    weight: 0.15
+    evidence_signals:
+      - zero values, slices vs arrays, defer, receivers, naming
+      - gofmt, go vet, staticcheck
+    levels:
+      0: "Escrevo Go com sotaque forte de outra linguagem."
+      1: "Código compila, mas ignora convenções (getters, nomes longos, structs desnecessários)."
+      2: "Sigo `gofmt` e nomes idiomáticos, mas ainda luto contra a linguagem em alguns pontos."
+      3: "Uso zero values, `defer` e receivers corretamente sem pensar muito."
+      4: "Meu código passa em `staticcheck` limpo e parece escrito por alguém que escreve Go."
+      5: "Reconheço quando um idioma comum é inadequado para o caso e justifico a exceção."
+
+  - key: tooling_modules
+    label: Ferramental e módulos
+    weight: 0.10
+    evidence_signals:
+      - go.mod, go.sum, build tags, go generate
+      - pprof, benchmarks, cross-compilation
+    levels:
+      0: "Rodo `go run` e só."
+      1: "Uso `go mod init` e `go get` quando o tutorial manda."
+      2: "Entendo `go.mod`/`go.sum` e resolvo conflitos de versão com tentativa e erro."
+      3: "Organizo um projeto em pacotes coerentes e uso `go test ./...` e `go build` com confiança."
+      4: "Escrevo benchmarks, leio `pprof`, e uso build tags quando preciso."
+      5: "Publico um módulo versionado com semântica de versão correta e compatibilidade pensada."
+
+# ─────────────────────────────────────────────────────────────────────────────
+evidence_types:
+  - code_snippet
+  - repo_link
+  - commit_diff
+  - exercise_solution
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Formatos de prática — os moldes que o Gerador de Prática (A2) usa.
+# Cada formato tem um teto de tempo, porque P4 exige ação pequena.
+# ─────────────────────────────────────────────────────────────────────────────
+practice_formats:
+
+  - key: kata
+    label: Kata
+    minutes: [15, 30]
+    good_for: [concurrency, error_handling, idioms]
+    shape: |
+      Um problema fechado, com entrada e saída claras, resolvível em um arquivo.
+      Deve exercitar UMA competência principal.
+    example: "Escreva uma função que lê 3 URLs em paralelo e retorna os status codes, cancelando tudo se uma falhar."
+
+  - key: mini_project
+    label: Mini-projeto
+    minutes: [25, 30]
+    good_for: [interfaces_design, tooling_modules, testing]
+    shape: |
+      Uma fatia de algo maior, entregável em uma sessão. Se não cabe em 30 min,
+      quebre — o marco é que é grande, não a ação.
+    example: "Adicione um middleware de logging ao seu servidor HTTP e um teste que prove que ele registra o status."
+
+  - key: code_reading
+    label: Leitura de código
+    minutes: [15, 25]
+    good_for: [idioms, interfaces_design]
+    shape: |
+      Ler um trecho de código Go real e responder 2-3 perguntas específicas.
+      A evidência é a resposta, não o código.
+    example: "Leia `net/http.ServeMux` e responda: por que ele usa um mutex e não um sync.Map?"
+
+  - key: refactor_drill
+    label: Refatoração
+    minutes: [20, 30]
+    good_for: [error_handling, idioms, interfaces_design]
+    shape: |
+      Receber código funcional porém ruim e melhorá-lo, justificando cada mudança.
+    example: "Este handler ignora 3 erros e tem uma interface de 8 métodos. Melhore e explique."
+
+  - key: debug_hunt
+    label: Caça ao bug
+    minutes: [15, 25]
+    good_for: [concurrency, testing]
+    shape: |
+      Código com um defeito real (race, deadlock, leak). Encontrar, provar com
+      teste, corrigir.
+    example: "Este worker pool trava com 10 itens e 3 workers. Ache o porquê e escreva o teste que expõe."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Biblioteca de marcos — ponto de partida do Planejador (A1).
+# Ele reordena e corta conforme o baseline; não é uma trilha fixa.
+# ─────────────────────────────────────────────────────────────────────────────
+milestone_library:
+
+  - title: "CLI que lê arquivo e agrega dados, com testes"
+    competencies: [idioms, testing, error_handling]
+    criteria: "Roda com `go run`, trata arquivo inexistente com erro útil, e tem testes table-driven."
+    typical_level: 1
+
+  - title: "Pacote com interface pequena e implementação trocável"
+    competencies: [interfaces_design, testing]
+    criteria: "Interface declarada no consumidor, com uma implementação real e um fake usado em teste."
+    typical_level: 2
+
+  - title: "Servidor HTTP com handlers, middleware e testes de integração"
+    competencies: [interfaces_design, testing, error_handling]
+    criteria: "Usa `httptest`, tem ao menos um middleware próprio e trata erro retornando status correto."
+    typical_level: 2
+
+  - title: "Worker pool com context, cancelamento e graceful shutdown"
+    competencies: [concurrency, testing]
+    criteria: "Encerra limpo com SIGINT, sem goroutine leak, e passa em `go test -race`."
+    typical_level: 3
+
+  - title: "Pipeline concorrente com estágios e backpressure"
+    competencies: [concurrency, interfaces_design]
+    criteria: "Estágios ligados por channels, com limite de concorrência e propagação de erro."
+    typical_level: 4
+
+  - title: "Otimização guiada por benchmark e pprof"
+    competencies: [tooling_modules, concurrency]
+    criteria: "Benchmark antes e depois, com explicação do que mudou e por quê."
+    typical_level: 4
+
+  - title: "Módulo publicado com API pública bem desenhada e doc"
+    competencies: [interfaces_design, tooling_modules, idioms]
+    criteria: "Versionado, com README, exemplos executáveis e superfície pública mínima."
+    typical_level: 5
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Fontes que o Curador (A4) prioriza. Ele DEVE verificar HTTP 200 antes de
+# entregar qualquer link — recurso inventado destrói a confiança no sistema.
+# ─────────────────────────────────────────────────────────────────────────────
+curation:
+  preferred_domains:
+    - go.dev
+    - pkg.go.dev
+    - github.com
+    - exercism.org
+    - research.swtch.com
+    - dave.cheney.net
+  avoid:
+    - "conteúdo gerado automaticamente sem autor identificável"
+    - "tutoriais de 2015 usando GOPATH"
+    - "artigos que só reescrevem a documentação oficial"
+  seeds:
+    - "Effective Go — go.dev/doc/effective_go"
+    - "Go Blog — go.dev/blog"
+    - "Go by Example — gobyexample.com"
+    - "Exercism Go track"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Sinais de que houve evolução real neste domínio — usados pelo Coach (A5)
+# para escrever reconhecimento ancorado em fato, não elogio vazio.
+# ─────────────────────────────────────────────────────────────────────────────
+progress_signals:
+  - "parou de ignorar erros retornados"
+  - "passou a usar context para cancelamento sem ser lembrado"
+  - "escreveu teste antes de pedirem"
+  - "interface encolheu entre uma evidência e outra"
+  - "usou `-race` por conta própria"
+  - "reconheceu abstração prematura no próprio código"
+
+# Sondagem: perguntas-semente. O agente adapta, mas começa por aqui.
+probe_seeds:
+  - competency: concurrency
+    question: "Já mexeu com goroutines?"
+    followups:
+      yes: "Consegue escrever um worker pool com channels sem consultar?"
+      no:  "Já precisou fazer duas coisas ao mesmo tempo em algum programa seu?"
+  - competency: testing
+    question: "Você costuma escrever testes nos seus projetos?"
+  - competency: interfaces_design
+    question: "Já declarou uma interface em Go? Onde você a colocou — junto da implementação ou de quem usa?"

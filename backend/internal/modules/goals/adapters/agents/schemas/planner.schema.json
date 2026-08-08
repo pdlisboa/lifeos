@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "planner.schema.json",
+  "title": "Saída do Planejador (A1)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["milestones", "rationale"],
+  "properties": {
+    "milestones": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 8,
+      "description": "Menos de 4 não mostra trajetória; mais de 8 parece inatingível.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ordinal", "title", "completionCriteria", "competencyKeys"],
+        "properties": {
+          "ordinal": { "type": "integer", "minimum": 1 },
+          "title": { "type": "string", "minLength": 10, "maxLength": 120 },
+          "completionCriteria": {
+            "type": "string",
+            "minLength": 20,
+            "description": "Verificável. 'Entender X' é rejeitado."
+          },
+          "competencyKeys": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 3,
+            "items": { "type": "string" }
+          },
+          "carriedOver": {
+            "type": "boolean",
+            "default": false,
+            "description": "Marco já concluído, copiado de uma trilha anterior. Intocável."
+          },
+          "sourceLibraryTitle": {
+            "type": ["string", "null"],
+            "description": "Marco da biblioteca do pack em que este se baseia, se houver."
+          }
+        }
+      }
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 40,
+      "maxLength": 1500,
+      "description": "Por que esta ordem, e o que mudou em relação à trilha anterior."
+    },
+    "noChangeNeeded": {
+      "type": "boolean",
+      "default": false,
+      "description": "Numa revisão, dizer que a trilha está boa é resposta válida."
+    }
+  }
+}

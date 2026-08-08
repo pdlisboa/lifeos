@@ -1,0 +1,6 @@
+.env
+backend/bin/
+.DS_Store
+.claude
+docs/modulos
+.env

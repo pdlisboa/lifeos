@@ -1,0 +1,1529 @@
+openapi: 3.1.0
+
+info:
+  title: LifeOS — Módulo Metas
+  version: 0.1.0
+  description: |
+    Contrato do módulo Metas. Este arquivo é a **fonte da verdade**: dele são gerados
+    os stubs de servidor em Go (`oapi-codegen`) e o cliente TypeScript consumido por
+    web e mobile. Mudar o contrato sem atualizar os fronts vira erro de compilação.
+
+    Referências `RN-xx`, `Pn` e `§x` apontam para `docs/modulos/metas/00-negocio.md`.
+
+servers:
+  - url: https://lifeos.local/api/v1
+    description: self-host
+
+security:
+  - sessionCookie: []
+  - bearerToken: []
+
+tags:
+  - name: auth
+  - name: today
+    description: A rota que o app abre. Se for lenta ou vazia, o produto falhou.
+  - name: goals
+  - name: probe
+    description: Sondagem conversacional adaptativa (§7.8)
+  - name: progress
+    description: Delta, projeção, consistência, museu — as mecânicas antidesistência
+  - name: actions
+  - name: evidence
+  - name: proposals
+    description: Nada de agente entra no estado sem aceite (RN-07)
+  - name: coach
+  - name: ops
+
+paths:
+
+  # ────────────────────────────────── auth ──────────────────────────────────
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Autentica e cria sessão
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, client]
+              properties:
+                email:    { type: string, format: email }
+                password: { type: string, format: password }
+                client:   { type: string, enum: [web, mobile] }
+      responses:
+        '200':
+          description: |
+            `web` recebe cookie HttpOnly e `token` nulo.
+            `mobile` recebe o token no corpo, para guardar no SecureStore.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:      { $ref: '#/components/schemas/User' }
+                  token:     { type: [string, 'null'] }
+                  expiresAt: { type: string, format: date-time }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: Revoga a sessão atual
+      responses:
+        '204': { description: sessão revogada }
+
+  /me:
+    get:
+      tags: [auth]
+      summary: Usuário e preferências
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+          description: ok
+    patch:
+      tags: [auth]
+      summary: Atualiza fuso e janela de silêncio
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                timezone:       { type: string, examples: ['America/Sao_Paulo'] }
+                quietHoursFrom: { type: integer, minimum: 0, maximum: 23 }
+                quietHoursTo:   { type: integer, minimum: 0, maximum: 23 }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+          description: ok
+
+  # ────────────────────────────────── today ─────────────────────────────────
+  /today:
+    get:
+      tags: [today]
+      summary: Tudo que a tela inicial precisa, em uma chamada
+      description: |
+        Retorna no máximo 3 metas ativas (RN-02), cada uma com sua única ação
+        pendente (RN-03), mais o nudge do dia se houver (RN-08).
+        Uma chamada só, de propósito: o mobile abre nesta tela.
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [goals, consistency]
+                properties:
+                  goals:
+                    type: array
+                    maxItems: 3
+                    items: { $ref: '#/components/schemas/TodayGoal' }
+                  nudge:
+                    oneOf:
+                      - { $ref: '#/components/schemas/Nudge' }
+                      - { type: 'null' }
+                  consistency: { $ref: '#/components/schemas/Consistency' }
+                  pendingProposals: { type: integer, minimum: 0 }
+
+  # ────────────────────────────────── goals ─────────────────────────────────
+  /goals:
+    get:
+      tags: [goals]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: array
+            items: { $ref: '#/components/schemas/GoalStatus' }
+          style: form
+          explode: false
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/GoalSummary' }
+    post:
+      tags: [goals]
+      summary: Cria meta em rascunho
+      description: |
+        Só o essencial. A definição de pronto e as competências podem vir depois,
+        pela sondagem — a fricção na criação é o que mata o entusiasmo (D2).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, archetype, packId]
+              properties:
+                title:     { type: string, minLength: 3, maxLength: 120 }
+                archetype: { $ref: '#/components/schemas/GoalArchetype' }
+                packId:    { type: string, examples: ['golang', 'english'] }
+                why:       { type: string, maxLength: 1000 }
+      responses:
+        '201':
+          description: rascunho criado, com a sondagem já aberta
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  goal:  { $ref: '#/components/schemas/Goal' }
+                  probe: { $ref: '#/components/schemas/Probe' }
+
+  /goals/{goalId}:
+    parameters: [ { $ref: '#/components/parameters/GoalId' } ]
+    get:
+      tags: [goals]
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Goal' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [goals]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:            { type: string }
+                why:              { type: string }
+                definitionOfDone: { type: string }
+                horizonOn:        { type: string, format: date }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Goal' }
+
+  /goals/{goalId}/activate:
+    parameters: [ { $ref: '#/components/parameters/GoalId' } ]
+    post:
+      tags: [goals]
+      summary: Ativa a meta (RN-01, RN-02)
+      description: |
+        Falha com `409` se faltar definição de pronto ou 3 competências (RN-01),
+        ou se já houver 3 metas ativas (RN-02). No segundo caso o corpo do erro
+        traz `activeGoals`, para a UI perguntar qual pausar em vez de só reclamar.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pauseGoalId:
+                  type: string
+                  format: uuid
+                  description: pausa esta meta na mesma transação, liberando o slot
+      responses:
+        '200':
+          description: ativada, já com a primeira ação gerada (RN-03)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  goal:   { $ref: '#/components/schemas/Goal' }
+                  action: { $ref: '#/components/schemas/NextAction' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /goals/{goalId}/pause:
+    parameters: [ { $ref: '#/components/parameters/GoalId' } ]
+    post:
+      tags: [goals]
+      summary: Pausa consciente — não é fracasso (§10)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reviewOn]
+              properties:
+                reviewOn: { type: string, format: date }
+                note:     { type: string }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Goal' }
+
+  /goals/{goalId}/scope:
+    parameters: [ { $ref: '#/components/parameters/GoalId' } ]
+    post:
+      tags: [goals]
+      summary: Reduz ou restaura o escopo (§7.6)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mode]
+              properties:
+                mode: { type: string, enum: [normal, minimal] }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  goal:   { $ref: '#/components/schemas/Goal' }
+                  action: { $ref: '#/components/schemas/NextAction' }
+
+  /goals/{goalId}/close:
+    parameters: [ { $ref: '#/components/parameters/GoalId' } ]
+    post:
+      tags: [goals]
+      summary: Conclui ou encerra a meta — exige debrief (RN-10)
+      description: |
+        O debrief vem no mesmo comando de propósito. É a única fricção obrigatória
+        do sistema, e ela existe porque é onde está o aprendizado — inclusive,
+        e principalmente, quando você está largando.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [outcome, debrief]
+              properties:
+                outcome: { type: string, enum: [completed, abandoned] }
+                debrief: { $ref: '#/components/schemas/DebriefInput' }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Goal' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  # ────────────────────────────────── probe ─────────────────────────────────
+  /goals/{goalId}/probe:
+    parameters: [ { $ref: '#/components/parameters/GoalId' } ]
+    get:
+      tags: [probe]
+      summary: Estado da sondagem e a pergunta atual
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Probe' }
+
+  /goals/{goalId}/probe/answer:
+    parameters: [ { $ref: '#/components/parameters/GoalId' } ]
+    post:
+      tags: [probe]
+      summary: Responde e recebe a próxima pergunta (ou o fim)
+      description: |
+        Adaptativa: cada resposta poda a árvore. Teto de 5 perguntas, garantido
+        no banco. `nextQuestion` nulo significa que a sondagem se encerrou.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [turnId, answer]
+              properties:
+                turnId: { type: string, format: uuid }
+                answer: { type: string, maxLength: 2000 }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  probe:        { $ref: '#/components/schemas/Probe' }
+                  nextQuestion:
+                    oneOf:
+                      - { $ref: '#/components/schemas/ProbeTurn' }
+                      - { type: 'null' }
+
+  /goals/{goalId}/probe/skip:
+    parameters: [ { $ref: '#/components/parameters/GoalId' } ]
+    post:
+      tags: [probe]
+      summary: Pular — sempre disponível, sem penalidade
+      description: |
+        Competências não sondadas ficam com `level: null` (desconhecido),
+        nunca `0`. A diferença importa: zero é uma afirmação, null é a ausência dela.
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Probe' }
+
+  # ───────────────────────────────── progress ───────────────────────────────
+  /goals/{goalId}/delta:
+    parameters: [ { $ref: '#/components/parameters/GoalId' } ]
+    get:
+      tags: [progress]
+      summary: Painel de Delta (§7.1) — a tela principal de uma meta
+      description: |
+        Não mostra "quanto falta". Mostra o quanto você andou, por competência,
+        contra o seu próprio baseline (P2). Competências aposentadas ficam fora.
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeltaPanel' }
+
+  /goals/{goalId}/competencies/{competencyId}/history:
+    parameters:
+      - { $ref: '#/components/parameters/GoalId' }
+      - { $ref: '#/components/parameters/CompetencyId' }
+      - name: since
+        in: query
+        schema: { type: string, format: date }
+    get:
+      tags: [progress]
+      summary: Série temporal de níveis — o gráfico de evolução
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/LevelEvent' }
+
+  /goals/{goalId}/competencies/{competencyId}/level:
+    parameters:
+      - { $ref: '#/components/parameters/GoalId' }
+      - { $ref: '#/components/parameters/CompetencyId' }
+    put:
+      tags: [progress]
+      summary: Define o nível você mesmo (RN-04, via aceite explícito)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [level, rationale]
+              properties:
+                level:     { type: integer, minimum: 0, maximum: 5 }
+                rationale: { type: string, minLength: 3 }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Competency' }
+
+  /goals/{goalId}/projection:
+    parameters: [ { $ref: '#/components/parameters/GoalId' } ]
+    get:
+      tags: [progress]
+      summary: Projeção honesta (§7.2)
+      description: |
+        Só existe com pelo menos 3 semanas de histórico. Sem isso, `available:false`
+        e a UI diz que ainda está medindo — em vez de inventar uma previsão bonita.
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Projection' }
+
+  /goals/{goalId}/consistency:
+    parameters: [ { $ref: '#/components/parameters/GoalId' } ]
+    get:
+      tags: [progress]
+      summary: Dias ativos em janela móvel de 30 dias (RN-11)
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Consistency' }
+
+  /goals/{goalId}/snapshots:
+    parameters: [ { $ref: '#/components/parameters/GoalId' } ]
+    get:
+      tags: [progress]
+      summary: Snapshots semanais com o relato do Coach
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Snapshot' }
+
+  /goals/{goalId}/track:
+    parameters: [ { $ref: '#/components/parameters/GoalId' } ]
+    get:
+      tags: [progress]
+      summary: Trilha vigente, com o que já ficou para trás
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Track' }
+    post:
+      tags: [progress]
+      summary: Pede uma revisão de trilha ao Planejador
+      responses:
+        '202':
+          description: revisão enfileirada; chega como proposta (RN-07)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobAccepted' }
+
+  # ───────────────────────────────── actions ────────────────────────────────
+  /goals/{goalId}/action:
+    parameters: [ { $ref: '#/components/parameters/GoalId' } ]
+    get:
+      tags: [actions]
+      summary: A única ação pendente da meta (RN-03)
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NextAction' }
+    post:
+      tags: [actions]
+      summary: Cria uma ação sua, substituindo a atual
+      description: O sistema nunca fica travado por causa da IA — você pode escrever a sua.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title:        { type: string }
+                detail:       { type: string }
+                estimatedMin: { type: integer, minimum: 5, maximum: 30 }
+                competencyId: { type: string, format: uuid }
+      responses:
+        '201':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NextAction' }
+
+  /actions/{actionId}/complete:
+    parameters: [ { $ref: '#/components/parameters/ActionId' } ]
+    post:
+      tags: [actions]
+      summary: Conclui a ação e já devolve a próxima (RN-03)
+      description: |
+        A próxima ação vem na mesma resposta. Nunca existe um instante em que
+        você olha a tela e não sabe o que fazer — é onde a meta morre (Problema C).
+        Se o agente falhar, vem uma ação de fallback do pack.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                usedMinimalVariant: { type: boolean, default: false }
+                durationMin:        { type: integer, minimum: 1, maximum: 600 }
+                note:               { type: string }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  completed:  { $ref: '#/components/schemas/NextAction' }
+                  next:       { $ref: '#/components/schemas/NextAction' }
+                  session:
+                    oneOf:
+                      - { $ref: '#/components/schemas/Session' }
+                      - { type: 'null' }
+
+  /actions/{actionId}/skip:
+    parameters: [ { $ref: '#/components/parameters/ActionId' } ]
+    post:
+      tags: [actions]
+      summary: Pula a ação — o motivo alimenta a calibragem (§7.3)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { $ref: '#/components/schemas/SkipReason' }
+                note:   { type: string }
+      responses:
+        '200':
+          description: próxima ação já calibrada pelo motivo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  next: { $ref: '#/components/schemas/NextAction' }
+
+  # ───────────────────────────────── sessions ───────────────────────────────
+  /goals/{goalId}/sessions:
+    parameters: [ { $ref: '#/components/parameters/GoalId' } ]
+    get:
+      tags: [actions]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Page'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/Session' }
+    post:
+      tags: [actions]
+      summary: Registra sessão — insumo, não progresso (P1)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [startedAt, durationMin]
+              properties:
+                startedAt:   { type: string, format: date-time }
+                durationMin: { type: integer, minimum: 1, maximum: 600 }
+                note:        { type: string }
+                energy:      { type: integer, minimum: 1, maximum: 5 }
+                actionId:    { type: string, format: uuid }
+      responses:
+        '201':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+
+  # ───────────────────────────────── evidence ───────────────────────────────
+  /uploads:
+    post:
+      tags: [evidence]
+      summary: Sobe um arquivo (áudio de inglês, anexo) e devolve a chave
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        '201':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  blobKey:  { type: string }
+                  sizeBytes: { type: integer }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+
+  /goals/{goalId}/evidence:
+    parameters: [ { $ref: '#/components/parameters/GoalId' } ]
+    get:
+      tags: [evidence]
+      summary: Museu de evidências (§7.4)
+      description: |
+        Ordem crescente por padrão — o museu é feito para comparar o antigo com o
+        novo, e ver o começo primeiro é o que produz a sensação de distância percorrida.
+      parameters:
+        - name: competencyId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: order
+          in: query
+          schema: { type: string, enum: [asc, desc], default: asc }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Page'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: '#/components/schemas/EvidenceCard' }
+    post:
+      tags: [evidence]
+      summary: Submete evidência — a moeda real do sistema (P1)
+      description: |
+        Responde `202` imediatamente. A avaliação é assíncrona porque leva de 5 a 30s
+        e não pode ficar no caminho crítico de um request. O cliente acompanha por
+        `GET /evidence/{id}/assessment`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind]
+              properties:
+                kind:        { $ref: '#/components/schemas/EvidenceKind' }
+                title:       { type: string }
+                body:        { type: string }
+                blobKey:     { type: string }
+                externalUrl: { type: string, format: uri }
+                language:    { type: string }
+                actionId:    { type: string, format: uuid }
+                supersedesId:
+                  type: string
+                  format: uuid
+                  description: correção cria nova evidência; a antiga é imutável (RN-06)
+      responses:
+        '202':
+          description: evidência gravada, avaliação enfileirada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  evidence: { $ref: '#/components/schemas/Evidence' }
+                  job:      { $ref: '#/components/schemas/JobAccepted' }
+
+  /evidence/{evidenceId}:
+    parameters: [ { $ref: '#/components/parameters/EvidenceId' } ]
+    get:
+      tags: [evidence]
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Evidence' }
+
+  /evidence/{evidenceId}/assessment:
+    parameters: [ { $ref: '#/components/parameters/EvidenceId' } ]
+    get:
+      tags: [evidence]
+      summary: Resultado da avaliação
+      description: |
+        `202` enquanto o job roda — não existe avaliação "pendente" gravada no banco
+        (§18.4 do modelo de dados). `200` quando pronta, com `status: failed` se o
+        agente não conseguiu, porque "não consegui avaliar isso" é informação legítima.
+      responses:
+        '200':
+          description: pronta
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Assessment' }
+        '202':
+          description: ainda avaliando
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobAccepted' }
+
+  # ──────────────────────────────── proposals ───────────────────────────────
+  /proposals:
+    get:
+      tags: [proposals]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [pending, accepted, rejected, expired], default: pending }
+        - name: goalId
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Proposal' }
+
+  /proposals/{proposalId}/accept:
+    parameters: [ { $ref: '#/components/parameters/ProposalId' } ]
+    post:
+      tags: [proposals]
+      summary: Aceita — só aqui a proposta vira estado (RN-07)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                edits:
+                  type: object
+                  additionalProperties: true
+                  description: ajustes seus antes de aplicar. O agente propõe, você decide (P8).
+      responses:
+        '200':
+          description: aplicada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Proposal' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /proposals/{proposalId}/reject:
+    parameters: [ { $ref: '#/components/parameters/ProposalId' } ]
+    post:
+      tags: [proposals]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Proposal' }
+
+  # ──────────────────────────────── resources ───────────────────────────────
+  /goals/{goalId}/resources:
+    parameters: [ { $ref: '#/components/parameters/GoalId' } ]
+    get:
+      tags: [coach]
+      summary: Recursos curados — só os com link verificado
+      parameters:
+        - name: competencyId
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Resource' }
+    post:
+      tags: [coach]
+      summary: Pede curadoria ao A4
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                competencyId: { type: string, format: uuid }
+                gap:          { type: string, description: 'ex: "não entendi errgroup"' }
+      responses:
+        '202':
+          description: busca enfileirada; links são verificados por HTTP antes de aparecer
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobAccepted' }
+
+  /resources/{resourceId}/feedback:
+    parameters:
+      - name: resourceId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [coach]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                consumed: { type: boolean }
+                rating:   { type: integer, minimum: 1, maximum: 5 }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Resource' }
+
+  # ────────────────────────────────── coach ─────────────────────────────────
+  /nudges:
+    get:
+      tags: [coach]
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Nudge' }
+
+  /nudges/{nudgeId}/ack:
+    parameters:
+      - name: nudgeId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [coach]
+      summary: Marca visualização ou ação
+      description: |
+        Alimenta a métrica de eficácia do Coach. Um nudge que nunca é aberto é um
+        nudge que precisa mudar de tom, não de frequência.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [event]
+              properties:
+                event: { type: string, enum: [opened, acted, dismissed] }
+      responses:
+        '204': { description: ok }
+
+  /devices:
+    post:
+      tags: [coach]
+      summary: Registra o token de push do Expo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expoToken, platform]
+              properties:
+                expoToken: { type: string }
+                platform:  { type: string, enum: [android, ios, web] }
+      responses:
+        '201': { description: ok }
+
+  /devices/{deviceId}:
+    parameters:
+      - name: deviceId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    delete:
+      tags: [coach]
+      responses:
+        '204': { description: ok }
+
+  # ─────────────────────────────────── ops ──────────────────────────────────
+  /healthz:
+    get:
+      tags: [ops]
+      security: []
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [ok, degraded] }
+                  db:     { type: boolean }
+                  queue:  { type: boolean }
+
+  /agents/budget:
+    get:
+      tags: [ops]
+      summary: Gasto do mês e tier vigente (§6.3 da arquitetura)
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  periodOn:    { type: string, format: date }
+                  limitUsd:    { type: number }
+                  spentUsd:    { type: number }
+                  degraded:    { type: boolean, description: true quando strong foi rebaixado }
+                  callsThisMonth: { type: integer }
+
+# ═════════════════════════════════ components ════════════════════════════════
+components:
+
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: lifeos_session
+    bearerToken:
+      type: http
+      scheme: bearer
+
+  parameters:
+    GoalId:
+      name: goalId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    CompetencyId:
+      name: competencyId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    ActionId:
+      name: actionId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    EvidenceId:
+      name: evidenceId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    ProposalId:
+      name: proposalId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 30 }
+    Cursor:
+      name: cursor
+      in: query
+      schema: { type: string }
+
+  schemas:
+
+    # ── enums ──
+    GoalArchetype:
+      type: string
+      enum: [skill, habit, project, metric]
+    GoalStatus:
+      type: string
+      enum: [draft, active, at_risk, stagnant, paused, completed, abandoned]
+    Confidence:
+      type: string
+      enum: [unknown, low, medium, high]
+      description: |
+        `unknown` = nunca medido. `low` = auto-declarado na sondagem ou nível
+        vencido por desuso. `medium` = uma avaliação. `high` = consolidado.
+    SkipReason:
+      type: string
+      enum: [too_hard, too_easy, no_time, not_relevant, other]
+    EvidenceKind:
+      type: string
+      enum: [code_snippet, repo_link, commit_diff, exercise_solution,
+             written_text, audio_recording, listening_log, shadowing_clip, file]
+    NudgeKind:
+      type: string
+      enum: [recognition, recovery, recalibration, scope_reduction, revision]
+
+    # ── básicos ──
+    User:
+      type: object
+      required: [id, email, timezone]
+      properties:
+        id:       { type: string, format: uuid }
+        email:    { type: string, format: email }
+        timezone: { type: string }
+        quietHoursFrom: { type: [integer, 'null'] }
+        quietHoursTo:   { type: [integer, 'null'] }
+
+    Page:
+      type: object
+      properties:
+        nextCursor: { type: [string, 'null'] }
+        hasMore:    { type: boolean }
+
+    JobAccepted:
+      type: object
+      required: [jobId, state]
+      properties:
+        jobId:      { type: string }
+        state:      { type: string, enum: [queued, running, failed] }
+        retryAfterMs: { type: integer, description: dica de polling para o cliente }
+
+    # ── metas ──
+    GoalSummary:
+      type: object
+      required: [id, title, archetype, packId, status]
+      properties:
+        id:        { type: string, format: uuid }
+        title:     { type: string }
+        archetype: { $ref: '#/components/schemas/GoalArchetype' }
+        packId:    { type: string }
+        status:    { $ref: '#/components/schemas/GoalStatus' }
+        scopeMode: { type: string, enum: [normal, minimal] }
+        daysActive: { type: integer }
+        lastActivityAt: { type: [string, 'null'], format: date-time }
+
+    Goal:
+      allOf:
+        - $ref: '#/components/schemas/GoalSummary'
+        - type: object
+          properties:
+            why:              { type: [string, 'null'] }
+            definitionOfDone: { type: [string, 'null'] }
+            horizonOn:        { type: [string, 'null'], format: date }
+            pausedUntil:      { type: [string, 'null'], format: date }
+            competencies:
+              type: array
+              items: { $ref: '#/components/schemas/Competency' }
+            readyToActivate:
+              type: boolean
+              description: RN-01 satisfeita
+            blockers:
+              type: array
+              items: { type: string }
+              description: o que falta para ativar, em linguagem humana
+
+    TodayGoal:
+      type: object
+      required: [goal, action]
+      properties:
+        goal:   { $ref: '#/components/schemas/GoalSummary' }
+        action: { $ref: '#/components/schemas/NextAction' }
+        recentWin:
+          type: [string, 'null']
+          description: |
+            Uma linha sobre algo que subiu recentemente. Aparece na tela inicial
+            porque o produto existe para tornar evolução visível, não para cobrar.
+
+    DebriefInput:
+      type: object
+      required: [whatWorked, whatDidnt]
+      properties:
+        whatWorked:   { type: string, minLength: 3 }
+        whatDidnt:    { type: string, minLength: 3 }
+        whatSurvives: { type: string }
+        wouldRetry:   { type: boolean }
+
+    # ── sondagem ──
+    Probe:
+      type: object
+      required: [id, status, askedCount, maxQuestions]
+      properties:
+        id:     { type: string, format: uuid }
+        status: { type: string, enum: [open, completed, skipped] }
+        askedCount: { type: integer, minimum: 0, maximum: 5 }
+        maxQuestions:
+          type: integer
+          const: 5
+          description: |
+            Teto garantido no banco. Um agente entusiasmado não consegue
+            transformar a sondagem num questionário nem que queira (D2).
+        currentQuestion:
+          oneOf:
+            - { $ref: '#/components/schemas/ProbeTurn' }
+            - { type: 'null' }
+        turns:
+          type: array
+          items: { $ref: '#/components/schemas/ProbeTurn' }
+        canSkip:
+          type: boolean
+          const: true
+          description: sempre verdadeiro. O botão de "começar agora" nunca some.
+
+    ProbeTurn:
+      type: object
+      required: [id, ordinal, question]
+      properties:
+        id:       { type: string, format: uuid }
+        ordinal:  { type: integer }
+        question: { type: string }
+        answer:   { type: [string, 'null'] }
+        competencyId:  { type: [string, 'null'], format: uuid }
+        inferredLevel: { type: [integer, 'null'], minimum: 0, maximum: 5 }
+        answeredAt:    { type: [string, 'null'], format: date-time }
+
+    # ── competências e progresso ──
+    Competency:
+      type: object
+      required: [id, packKey, label, weight, confidence]
+      properties:
+        id:      { type: string, format: uuid }
+        packKey: { type: string }
+        label:   { type: string }
+        weight:  { type: number }
+        level:
+          type: [integer, 'null']
+          minimum: 0
+          maximum: 5
+          description: '`null` = desconhecido, que é diferente de `0` = não iniciado'
+        levelDescriptor:
+          type: [string, 'null']
+          description: o texto do pack para este nível. A UI mostra isto, não o número.
+        baselineLevel: { type: [integer, 'null'] }
+        confidence:    { $ref: '#/components/schemas/Confidence' }
+        lastEvidenceAt: { type: [string, 'null'], format: date-time }
+        staleDays:
+          type: [integer, 'null']
+          description: dias sem evidência; alimenta o aviso de "não verificado" (RN-05)
+        retired:       { type: boolean, default: false }
+
+    DeltaPanel:
+      type: object
+      required: [goalId, daysActive, competencies, totals]
+      properties:
+        goalId:     { type: string, format: uuid }
+        daysActive: { type: integer }
+        competencies:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/Competency'
+              - type: object
+                properties:
+                  delta:
+                    type: [integer, 'null']
+                    description: nível atual menos baseline. O número que importa.
+                  deltaWindowDays: { type: [integer, 'null'] }
+                  risesLast90d:    { type: integer }
+        totals:
+          type: object
+          properties:
+            evidenceCount:  { type: integer }
+            milestonesDone: { type: integer }
+            sessionMinutes: { type: integer }
+        headline:
+          type: [string, 'null']
+          description: |
+            Uma frase comparando você com o seu eu passado (P2), ex.:
+            "Há 60 dias você não usava context.Context; hoje aparece em 3 evidências."
+
+    LevelEvent:
+      type: object
+      required: [id, toLevel, source, occurredAt, rationale]
+      properties:
+        id:         { type: string, format: uuid }
+        fromLevel:  { type: [integer, 'null'] }
+        toLevel:    { type: integer }
+        confidence: { $ref: '#/components/schemas/Confidence' }
+        source:
+          type: string
+          enum: [probe, self, assessment, weekly_consolidation, decay, revalidation]
+        rationale:
+          type: string
+          description: |
+            Obrigatório. Nível que muda sem explicação é nível em que você não
+            confia, e um número em que você não confia não motiva ninguém.
+        assessmentId: { type: [string, 'null'], format: uuid }
+        occurredAt:   { type: string, format: date-time }
+
+    Projection:
+      type: object
+      required: [available]
+      properties:
+        available: { type: boolean }
+        reason:
+          type: [string, 'null']
+          description: quando indisponível, ex. "ainda coletando ritmo (2 de 3 semanas)"
+        minutesPerWeek: { type: [number, 'null'] }
+        nextMilestone:  { type: [string, 'null'] }
+        weeksToNextMin: { type: [integer, 'null'] }
+        weeksToNextMax: { type: [integer, 'null'] }
+        ifYouDouble:
+          type: [string, 'null']
+          description: cenário alternativo, sempre em intervalo — nunca número seco
+
+    Consistency:
+      type: object
+      required: [activeDays, windowDays]
+      properties:
+        activeDays: { type: integer }
+        windowDays: { type: integer, default: 30 }
+        todayDone:  { type: boolean }
+        label:
+          type: string
+          description: |
+            Ex.: "18 dos últimos 30 dias". Nunca uma streak que zera (RN-11, P6) —
+            nenhum campo desta API expõe contador consecutivo, de propósito.
+
+    Snapshot:
+      type: object
+      properties:
+        periodOn:       { type: string, format: date }
+        levels:         { type: object, additionalProperties: { type: integer } }
+        deltas:         { type: object, additionalProperties: { type: integer } }
+        milestonesDone: { type: integer }
+        evidenceCount:  { type: integer }
+        sessionMinutes: { type: integer }
+        activeDays:     { type: integer }
+        narrative:      { type: [string, 'null'] }
+
+    # ── trilha ──
+    Track:
+      type: object
+      properties:
+        id:      { type: string, format: uuid }
+        version: { type: integer }
+        milestones:
+          type: array
+          items: { $ref: '#/components/schemas/Milestone' }
+
+    Milestone:
+      type: object
+      required: [id, ordinal, title, status]
+      properties:
+        id:      { type: string, format: uuid }
+        ordinal: { type: integer }
+        title:   { type: string }
+        completionCriteria: { type: string }
+        status:  { type: string, enum: [locked, current, completed, skipped] }
+        completedAt: { type: [string, 'null'], format: date-time }
+        competencyIds:
+          type: array
+          items: { type: string, format: uuid }
+
+    # ── ação e sessão ──
+    NextAction:
+      type: object
+      required: [id, goalId, title, estimatedMin, status]
+      properties:
+        id:     { type: string, format: uuid }
+        goalId: { type: string, format: uuid }
+        title:  { type: string }
+        detail: { type: [string, 'null'] }
+        practiceFormat: { type: [string, 'null'] }
+        estimatedMin:
+          type: integer
+          minimum: 5
+          maximum: 30
+          description: teto de 30 min garantido no banco (P4)
+        minimalVariant:
+          type: [string, 'null']
+          description: a versão de 5 minutos. Cumprir o mínimo conta como dia ativo (§7.5).
+        competencyId: { type: [string, 'null'], format: uuid }
+        milestoneId:  { type: [string, 'null'], format: uuid }
+        generatedBy:  { type: string, enum: [agent, user, fallback] }
+        originKind:   { type: [string, 'null'], enum: [practice, revalidation, recovery, null] }
+        status:       { type: string, enum: [pending, completed, skipped] }
+        createdAt:    { type: string, format: date-time }
+
+    Session:
+      type: object
+      properties:
+        id:          { type: string, format: uuid }
+        startedAt:   { type: string, format: date-time }
+        durationMin: { type: integer }
+        localOn:     { type: string, format: date }
+        note:        { type: [string, 'null'] }
+        energy:      { type: [integer, 'null'] }
+
+    # ── evidência e avaliação ──
+    Evidence:
+      type: object
+      required: [id, kind, createdAt]
+      properties:
+        id:           { type: string, format: uuid }
+        kind:         { $ref: '#/components/schemas/EvidenceKind' }
+        title:        { type: [string, 'null'] }
+        body:         { type: [string, 'null'] }
+        blobUrl:      { type: [string, 'null'], description: URL assinada e temporária }
+        externalUrl:  { type: [string, 'null'] }
+        language:     { type: [string, 'null'] }
+        supersedesId: { type: [string, 'null'], format: uuid }
+        createdAt:    { type: string, format: date-time }
+
+    EvidenceCard:
+      allOf:
+        - $ref: '#/components/schemas/Evidence'
+        - type: object
+          properties:
+            competencyIds:
+              type: array
+              items: { type: string, format: uuid }
+            assessmentSummary: { type: [string, 'null'] }
+            levelsAtTime:
+              type: object
+              additionalProperties: { type: integer }
+              description: |
+                Nível de cada competência **no momento desta evidência**, reconstruído
+                a partir de `competency_level_event` (consulta point-in-time). É o que
+                permite o museu mostrar "você aqui" ao lado de "você hoje".
+
+    Assessment:
+      type: object
+      required: [id, evidenceId, status, kind]
+      properties:
+        id:         { type: string, format: uuid }
+        evidenceId: { type: string, format: uuid }
+        kind:       { type: string, enum: [daily, weekly_consolidation, self] }
+        status:     { type: string, enum: [ready, failed] }
+        summary:    { type: [string, 'null'] }
+        strengths:
+          type: array
+          items: { type: string }
+        gaps:
+          type: array
+          items:
+            type: object
+            properties:
+              competencyId: { type: [string, 'null'], format: uuid }
+              issue:        { type: string }
+              where:        { type: [string, 'null'], description: 'ex: "linha 14"' }
+              howToFix:     { type: [string, 'null'] }
+        scores:
+          type: array
+          items:
+            type: object
+            properties:
+              competencyId:  { type: string, format: uuid }
+              proposedLevel: { type: integer, minimum: 0, maximum: 5 }
+              observed:
+                type: string
+                description: |
+                  O que na SUA evidência sustenta a nota. Obrigatório — é o que
+                  separa "melhore seu tratamento de erros" de algo acionável.
+              consolidated:
+                type: boolean
+                description: false até a consolidação semanal confirmar (RN-04)
+        createdAt: { type: string, format: date-time }
+
+    # ── propostas, recursos, nudges ──
+    Proposal:
+      type: object
+      required: [id, kind, status, rationale]
+      properties:
+        id:     { type: string, format: uuid }
+        goalId: { type: [string, 'null'], format: uuid }
+        kind:
+          type: string
+          enum: [track, milestone_revision, level_change, scope_reduction,
+                 pack_draft, competency_set]
+        payload:   { type: object, additionalProperties: true }
+        rationale: { type: string }
+        status:    { type: string, enum: [pending, accepted, rejected, expired] }
+        expiresAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+
+    Resource:
+      type: object
+      required: [id, url, title, whyNow]
+      properties:
+        id:      { type: string, format: uuid }
+        url:     { type: string, format: uri }
+        title:   { type: string }
+        kind:    { type: [string, 'null'], enum: [article, video, repo, exercise, podcast, doc, book, null] }
+        whyNow:
+          type: string
+          description: por que ESTE recurso, para VOCÊ, AGORA — não uma lista genérica
+        estimatedMin: { type: [integer, 'null'] }
+        verifiedAt:
+          type: string
+          format: date-time
+          description: |
+            Sempre preenchido. Recurso sem verificação HTTP não é exposto — link
+            inventado destrói a confiança no sistema inteiro.
+        consumedAt: { type: [string, 'null'], format: date-time }
+        rating:     { type: [integer, 'null'] }
+
+    Nudge:
+      type: object
+      required: [id, kind, title, body]
+      properties:
+        id:     { type: string, format: uuid }
+        goalId: { type: [string, 'null'], format: uuid }
+        kind:   { $ref: '#/components/schemas/NudgeKind' }
+        title:  { type: string }
+        body:   { type: string }
+        actionLabel: { type: [string, 'null'] }
+        actionRoute: { type: [string, 'null'] }
+        deliveredAt: { type: [string, 'null'], format: date-time }
+
+    Problem:
+      type: object
+      description: RFC 9457
+      required: [type, title, status]
+      properties:
+        type:   { type: string, examples: ['https://lifeos/errors/max-active-goals'] }
+        title:  { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        rule:
+          type: [string, 'null']
+          description: 'a regra de negócio violada, ex: "RN-02"'
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:   { type: string }
+              message: { type: string }
+        activeGoals:
+          type: array
+          items: { $ref: '#/components/schemas/GoalSummary' }
+          description: presente no erro de RN-02, para a UI perguntar qual pausar
+
+  responses:
+    Unauthorized:
+      description: não autenticado
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    NotFound:
+      description: não encontrado
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Conflict:
+      description: conflito com uma regra de negócio
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    UnprocessableEntity:
+      description: payload válido mas incompleto para a operação
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    TooManyRequests:
+      description: rate limit
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    PayloadTooLarge:
+      description: arquivo grande demais
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }

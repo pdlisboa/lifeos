@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "practice.schema.json",
+  "title": "Saída do Gerador de Prática (A2)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["title", "detail", "practiceFormat", "estimatedMin",
+               "minimalVariant", "competencyKey", "expectedEvidence"],
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 120,
+      "description": "Imperativo e concreto. A pessoa deve começar sem reler."
+    },
+    "detail": {
+      "type": "string",
+      "minLength": 30,
+      "maxLength": 1200,
+      "description": "O suficiente para executar sem pesquisar o que fazer."
+    },
+    "practiceFormat": {
+      "type": "string",
+      "description": "Chave de um formato declarado no pack. Não invente."
+    },
+    "estimatedMin": {
+      "type": "integer",
+      "minimum": 5,
+      "maximum": 30,
+      "description": "Teto de 30 min também é constraint no banco (P4)."
+    },
+    "minimalVariant": {
+      "type": "string",
+      "minLength": 15,
+      "maxLength": 300,
+      "description": "A versão de 5 minutos da MESMA coisa. Salva o dia ruim (§7.5)."
+    },
+    "competencyKey": {
+      "type": "string",
+      "description": "A competência principal. Uma só."
+    },
+    "expectedEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "description"],
+      "description": "Ação que não gera artefato não move nível nenhum.",
+      "properties": {
+        "kind": { "type": "string" },
+        "description": { "type": "string", "minLength": 10 }
+      }
+    },
+    "milestoneId": { "type": ["string", "null"] },
+    "rationale": {
+      "type": ["string", "null"],
+      "maxLength": 300,
+      "description": "Por que esta ação agora. Exibido se a pessoa perguntar."
+    }
+  }
+}
