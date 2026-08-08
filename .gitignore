@@ -4,3 +4,5 @@ backend/bin/
 .claude
 docs/modulos
 .env
+x.md
+CLAUDE.md
