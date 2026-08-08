@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/phablo/lifeos/internal/modules/goals"
 	"github.com/phablo/lifeos/internal/platform/auth"
 	"github.com/phablo/lifeos/internal/platform/config"
 	"github.com/phablo/lifeos/internal/platform/db"
@@ -49,6 +50,14 @@ func main() {
 		CookieSecure: cfg.Env != "development",
 	}
 
+	// Falha ruidosa no boot (04-agentes.md §4.6): um domain pack inválido
+	// não pode subir silenciosamente — é pior descobrir isso semanas depois.
+	goalsModule, err := goals.New(pool, users, logger)
+	if err != nil {
+		logger.Error("carregar módulo goals", "err", err)
+		return
+	}
+
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID, middleware.RealIP, middleware.Recoverer, obs.RequestLogger(logger))
 
@@ -60,6 +69,8 @@ func main() {
 			r.Use(auth.RequireAuth(sessions))
 			r.Post("/auth/logout", authHandler.Logout)
 			r.Get("/me", authHandler.Me)
+
+			goalsModule.RegisterRoutes(r)
 		})
 	})
 

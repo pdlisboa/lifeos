@@ -1,5 +1,7 @@
+-- +goose Up
 -- 0001_foundation.sql — app_user, user_session, device
 -- Exatamente como em docs/modulos/metas/02-modelo-de-dados.md §3.
+-- Sem seção de rollback: migration é sempre para frente (§16 do modelo de dados).
 
 CREATE TABLE app_user (
     id            uuid PRIMARY KEY,

@@ -1,17 +1,21 @@
-// Comando migrate: aplica migrations (up/status) e cria o usuário único do
-// sistema (create-user) — necessário para o critério de pronto da Fatia 0.
+// Comando migrate: aplica migrations via goose (up/status) e cria o usuário
+// único do sistema (create-user) — necessário para o critério de pronto da
+// Fatia 0. goose é a ferramenta travada em 02-modelo-de-dados.md §2.
 package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"os"
+
+	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/pressly/goose/v3"
 
 	"github.com/phablo/lifeos/internal/platform/auth"
 	"github.com/phablo/lifeos/internal/platform/config"
 	"github.com/phablo/lifeos/internal/platform/db"
 	"github.com/phablo/lifeos/internal/platform/idgen"
-	"github.com/phablo/lifeos/internal/platform/migrate"
 )
 
 func main() {
@@ -25,6 +29,47 @@ func main() {
 		fatal(err)
 	}
 
+	switch os.Args[1] {
+	case "up", "status":
+		runGoose(cfg, os.Args[1])
+	case "create-user":
+		if len(os.Args) != 4 {
+			fmt.Println("uso: migrate create-user <email> <senha>")
+			os.Exit(1)
+		}
+		runCreateUser(cfg, os.Args[2], os.Args[3])
+	default:
+		usage()
+		os.Exit(1)
+	}
+}
+
+// goose fala database/sql; pgx/v5/stdlib registra o driver "pgx" em cima do
+// mesmo driver nativo que o resto do processo usa via pgxpool.
+func runGoose(cfg *config.Config, cmd string) {
+	sqlDB, err := sql.Open("pgx", cfg.DatabaseURL)
+	if err != nil {
+		fatal(fmt.Errorf("abrir conexão: %w", err))
+	}
+	defer sqlDB.Close()
+
+	if err := goose.SetDialect("postgres"); err != nil {
+		fatal(err)
+	}
+
+	ctx := context.Background()
+	switch cmd {
+	case "up":
+		err = goose.UpContext(ctx, sqlDB, cfg.MigrationsDir)
+	case "status":
+		err = goose.StatusContext(ctx, sqlDB, cfg.MigrationsDir)
+	}
+	if err != nil {
+		fatal(err)
+	}
+}
+
+func runCreateUser(cfg *config.Config, email, password string) {
 	ctx := context.Background()
 	pool, err := db.New(ctx, cfg.DatabaseURL)
 	if err != nil {
@@ -32,45 +77,18 @@ func main() {
 	}
 	defer pool.Close()
 
-	runner := migrate.NewRunner(pool, cfg.MigrationsDir)
-
-	switch os.Args[1] {
-	case "up":
-		if err := runner.Up(ctx); err != nil {
-			fatal(err)
-		}
-	case "status":
-		if err := runner.Status(ctx); err != nil {
-			fatal(err)
-		}
-	case "create-user":
-		if len(os.Args) != 4 {
-			fmt.Println("uso: migrate create-user <email> <senha>")
-			os.Exit(1)
-		}
-		if err := createUser(ctx, auth.NewUserStore(pool), os.Args[2], os.Args[3]); err != nil {
-			fatal(err)
-		}
-	default:
-		usage()
-		os.Exit(1)
-	}
-}
-
-func createUser(ctx context.Context, users *auth.UserStore, email, password string) error {
 	hash, err := auth.HashPassword(password)
 	if err != nil {
-		return fmt.Errorf("gerar hash: %w", err)
+		fatal(fmt.Errorf("gerar hash: %w", err))
 	}
 	id, err := idgen.NewUUIDv7()
 	if err != nil {
-		return fmt.Errorf("gerar id: %w", err)
+		fatal(fmt.Errorf("gerar id: %w", err))
 	}
-	if err := users.Create(ctx, id, email, hash); err != nil {
-		return err
+	if err := auth.NewUserStore(pool).Create(ctx, id, email, hash); err != nil {
+		fatal(err)
 	}
 	fmt.Printf("usuário criado: %s (%s)\n", email, id)
-	return nil
 }
 
 func usage() {

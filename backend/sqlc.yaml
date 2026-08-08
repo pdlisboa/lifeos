@@ -1,0 +1,54 @@
+# sqlc gera código Go tipado a partir das queries em
+# internal/modules/goals/adapters/postgres/queries/*.sql, usando o schema
+# real das migrations como fonte de verdade (02-modelo-de-dados.md §2).
+#
+# Rodar (via Docker, sem precisar instalar sqlc localmente):
+#   make sqlc-generate
+#
+# Ver docs/modulos/metas/fatia-1-implementacao.md §2 para o "porquê" da
+# migração e o passo a passo de como adicionar uma query nova.
+version: "2"
+sql:
+  - engine: "postgresql"
+    schema: "db/migrations"
+    queries: "internal/modules/goals/adapters/postgres/queries"
+    gen:
+      go:
+        package: "sqlcgen"
+        out: "internal/modules/goals/adapters/postgres/sqlcgen"
+        sql_package: "pgx/v5"
+        emit_pointers_for_null_types: true
+        # sqlc só aplica um override a colunas NULL se houver uma entrada
+        # separada com `nullable: true` — sem ela, colunas nullable caem no
+        # tipo pgtype.* default, mesmo com o override "não-nulo" acima.
+        overrides:
+          - db_type: "uuid"
+            go_type: "string"
+          - db_type: "uuid"
+            nullable: true
+            go_type:
+              type: "string"
+              pointer: true
+          - db_type: "timestamptz"
+            go_type: "time.Time"
+          - db_type: "timestamptz"
+            nullable: true
+            go_type:
+              import: "time"
+              type: "Time"
+              pointer: true
+          - db_type: "date"
+            go_type: "time.Time"
+          - db_type: "date"
+            nullable: true
+            go_type:
+              import: "time"
+              type: "Time"
+              pointer: true
+          - db_type: "pg_catalog.numeric"
+            go_type: "float64"
+          - db_type: "pg_catalog.numeric"
+            nullable: true
+            go_type:
+              type: "float64"
+              pointer: true

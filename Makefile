@@ -1,4 +1,4 @@
-.PHONY: build up down restart logs ps migrate-up migrate-status create-user test vet fmt
+.PHONY: build up down restart logs ps migrate-up migrate-status create-user test vet fmt sqlc-generate sqlc-diff
 
 build:
 	docker compose build
@@ -36,3 +36,14 @@ vet:
 
 fmt:
 	cd backend && gofmt -l .
+
+# sqlc via Docker — não precisa instalar o binário localmente. Roda depois
+# de mudar qualquer .sql em internal/modules/goals/adapters/postgres/queries/
+# ou qualquer migration (ver docs/modulos/metas/fatia-1-implementacao.md §2).
+sqlc-generate:
+	cd backend && docker run --rm -v "$$(pwd)":/src -w /src sqlc/sqlc:latest generate
+
+# confere se o código gerado está sincronizado com queries/schema, sem
+# sobrescrever nada — bom pra CI ou pra checar antes de commitar.
+sqlc-diff:
+	cd backend && docker run --rm -v "$$(pwd)":/src -w /src sqlc/sqlc:latest diff
