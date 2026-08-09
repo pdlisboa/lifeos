@@ -9,12 +9,16 @@ export function SessionForm({ goalId, onDone }: { goalId: string; onDone: () => 
   const createSession = useCreateSession(goalId);
 
   const submit = async () => {
-    await createSession.mutateAsync({
-      startedAt: new Date().toISOString(),
-      durationMin,
-      note: note.trim() || undefined,
-    });
-    onDone();
+    try {
+      await createSession.mutateAsync({
+        startedAt: new Date().toISOString(),
+        durationMin,
+        note: note.trim() || undefined,
+      });
+      onDone();
+    } catch {
+      // erro fica em createSession.error, renderizado abaixo
+    }
   };
 
   return (

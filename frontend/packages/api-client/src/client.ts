@@ -15,7 +15,16 @@ export interface CreateApiClientOptions {
  * o TanStack Query trata o throw.
  */
 export function createApiClient({ baseUrl, getAuthHeader }: CreateApiClientOptions) {
-  const client = createClient<paths>({ baseUrl, credentials: "include" });
+  // openapi-fetch usa `fetch = globalThis.fetch` como valor padrão de parâmetro,
+  // capturado uma vez na criação do client — se algo troca `globalThis.fetch`
+  // depois (ex.: MSW em teste, um service worker), o client fica preso na
+  // referência antiga. Passar essa função em vez do fetch direto garante busca
+  // em `globalThis.fetch` a cada chamada.
+  const client = createClient<paths>({
+    baseUrl,
+    credentials: "include",
+    fetch: (...args: Parameters<typeof fetch>) => globalThis.fetch(...args),
+  });
 
   client.use({
     onRequest({ request }) {

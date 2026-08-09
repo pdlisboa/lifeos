@@ -29,14 +29,18 @@ export function EvidenciaRoute() {
   const createEvidence = useCreateEvidence(goalId!);
 
   const submit = async () => {
-    await createEvidence.mutateAsync({
-      kind,
-      title: title.trim() || undefined,
-      body: kind !== "repo_link" ? body.trim() || undefined : undefined,
-      externalUrl: kind === "repo_link" ? externalUrl.trim() || undefined : undefined,
-      actionId: linkToAction ? action?.id : undefined,
-    });
-    navigate(`/metas/${goalId}`);
+    try {
+      await createEvidence.mutateAsync({
+        kind,
+        title: title.trim() || undefined,
+        body: kind !== "repo_link" ? body.trim() || undefined : undefined,
+        externalUrl: kind === "repo_link" ? externalUrl.trim() || undefined : undefined,
+        actionId: linkToAction ? action?.id : undefined,
+      });
+      navigate(`/metas/${goalId}`);
+    } catch {
+      // erro fica em createEvidence.error, renderizado abaixo
+    }
   };
 
   return (

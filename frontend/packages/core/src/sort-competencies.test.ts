@@ -38,4 +38,20 @@ describe("sortCompetenciesForPanel", () => {
     ];
     expect(sortCompetenciesForPanel(items).map((i) => i.label)).toEqual(["B", "A"]);
   });
+
+  it("duas competências não medidas mantêm a ordem relativa (empate)", () => {
+    const items: Item[] = [
+      { label: "Performance", level: null, baselineLevel: null },
+      { label: "Segurança", level: null, baselineLevel: null },
+    ];
+    expect(sortCompetenciesForPanel(items).map((i) => i.label)).toEqual(["Performance", "Segurança"]);
+  });
+
+  it("sem delta pré-calculado e sem baseline: trata como delta 0, não quebra o sort", () => {
+    const items: Item[] = [
+      { label: "Sem baseline", level: 3, baselineLevel: null },
+      { label: "Com baseline", level: 3, baselineLevel: 1 },
+    ];
+    expect(sortCompetenciesForPanel(items).map((i) => i.label)).toEqual(["Com baseline", "Sem baseline"]);
+  });
 });

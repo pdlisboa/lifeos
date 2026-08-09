@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useProbe, useAnswerProbe, useSkipProbe } from "@/features/probe/use-probe";
 import { ProblemError } from "@/components/problem-error";
 import { Button } from "@/components/ui";
@@ -9,25 +10,41 @@ export function ProbeStep({ goalId, onDone }: { goalId: string; onDone: () => vo
   const answer = useAnswerProbe(goalId);
   const skip = useSkipProbe(goalId);
 
+  const probeDone = !!probe && (!probe.currentQuestion || probe.status !== "open");
+
+  // Efeito colateral (onDone troca o passo do wizard) precisa ficar fora do
+  // corpo do render — chamar direto ali dispara de novo a cada re-render
+  // enquanto probeDone continuar true, não só na primeira vez que fica true.
+  useEffect(() => {
+    if (probeDone) onDone();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [probeDone]);
+
   if (isPending) return <p className="text-sm text-fg-muted">Carregando…</p>;
   if (error) return <ProblemError error={error} />;
+  if (probeDone) return null;
 
-  if (!probe.currentQuestion || probe.status !== "open") {
-    onDone();
-    return null;
-  }
-
-  const question = probe.currentQuestion;
+  const question = probe.currentQuestion!;
   const busy = answer.isPending || skip.isPending;
 
+  // Não chama onDone aqui: a mutation atualiza o cache do probe, probeDone
+  // recalcula no próximo render, e o useEffect acima dispara onDone uma única
+  // vez — chamar nos dois lugares duplicava a chamada (probeDone virava true
+  // E o retorno da mutation também mandava avançar).
   const submitAnswer = async (text: string) => {
-    const result = await answer.mutateAsync({ turnId: question.id, answer: text });
-    if (!result.nextQuestion) onDone();
+    try {
+      await answer.mutateAsync({ turnId: question.id, answer: text });
+    } catch {
+      // erro fica em answer.error, renderizado abaixo
+    }
   };
 
   const doSkip = async () => {
-    await skip.mutateAsync();
-    onDone();
+    try {
+      await skip.mutateAsync();
+    } catch {
+      // erro fica em skip.error, renderizado abaixo
+    }
   };
 
   return (
@@ -49,12 +66,10 @@ export function ProbeStep({ goalId, onDone }: { goalId: string; onDone: () => vo
         ))}
       </div>
 
+      {(answer.error || skip.error) && <ProblemError error={answer.error ?? skip.error} />}
+
       <div className="border-t border-border-subtle pt-4">
-        <button
-          className="text-sm text-fg-secondary hover:text-fg-primary"
-          disabled={busy}
-          onClick={doSkip}
-        >
+        <button className="text-sm text-fg-secondary hover:text-fg-primary" disabled={busy} onClick={doSkip}>
           Já sei o suficiente, quero começar →
         </button>
       </div>

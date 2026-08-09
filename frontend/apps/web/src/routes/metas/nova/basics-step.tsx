@@ -24,10 +24,14 @@ export function BasicsStep({ onCreated }: { onCreated: (goalId: string) => void 
   } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
   const onSubmit = handleSubmit(async ({ title }) => {
-    const pack = packs.find((p) => p.packId === packId)!;
-    const result = await createGoal.mutateAsync({ title, archetype: pack.archetype, packId: pack.packId });
-    if (!result.goal) throw new Error("resposta sem goal");
-    onCreated(result.goal.id);
+    try {
+      const pack = packs.find((p) => p.packId === packId)!;
+      const result = await createGoal.mutateAsync({ title, archetype: pack.archetype, packId: pack.packId });
+      if (!result.goal) throw new Error("resposta sem goal");
+      onCreated(result.goal.id);
+    } catch {
+      // erro fica em createGoal.error, renderizado abaixo
+    }
   });
 
   return (

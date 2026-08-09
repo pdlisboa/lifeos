@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   deltaPhase,
@@ -10,6 +11,7 @@ import { useDelta } from "@/features/delta/use-delta";
 import { ProblemError } from "@/components/problem-error";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { SetLevelForm } from "./set-level-form";
 
 const MAX_LEVEL = 5;
 
@@ -37,8 +39,40 @@ function NotMeasuredBar() {
   );
 }
 
+/** "ainda não medimos" + o gatilho pra você mesmo declarar o nível (RN-04). */
+function NotMeasuredRow({
+  goalId,
+  competencyId,
+  open,
+  onToggle,
+}: {
+  goalId: string;
+  competencyId: string;
+  open: boolean;
+  onToggle: (open: boolean) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <span className="text-fg-secondary">ainda não medimos</span>
+        {!open && (
+          <button
+            type="button"
+            className="text-xs text-fg-muted underline hover:text-fg-secondary"
+            onClick={() => onToggle(true)}
+          >
+            definir nível
+          </button>
+        )}
+      </div>
+      {open && <SetLevelForm goalId={goalId} competencyId={competencyId} onDone={() => onToggle(false)} />}
+    </div>
+  );
+}
+
 export function DeltaPanelView({ goalId }: { goalId: string }) {
   const { data: panel, isPending, error } = useDelta(goalId);
+  const [openLevelFormFor, setOpenLevelFormFor] = useState<string | null>(null);
 
   if (isPending) return <p className="text-sm text-fg-muted">Carregando…</p>;
   if (error) return <ProblemError error={error} />;
@@ -58,6 +92,15 @@ export function DeltaPanelView({ goalId }: { goalId: string }) {
     })),
   );
 
+  const notMeasured = (c: (typeof sorted)[number]) => (
+    <NotMeasuredRow
+      goalId={goalId}
+      competencyId={c.id}
+      open={openLevelFormFor === c.id}
+      onToggle={(open) => setOpenLevelFormFor(open ? c.id : null)}
+    />
+  );
+
   if (phase === "baseline") {
     return (
       <div className="space-y-6">
@@ -67,11 +110,9 @@ export function DeltaPanelView({ goalId }: { goalId: string }) {
 
         <ul className="space-y-2">
           {sorted.map((c) => (
-            <li key={c.id} className="flex items-center justify-between text-sm">
+            <li key={c.id} className="flex items-center justify-between gap-4 text-sm">
               <span className="text-fg-primary">{c.label}</span>
-              <span className="text-fg-secondary">
-                {c.level === null ? "ainda não medimos" : `${c.level}  ← você está aqui`}
-              </span>
+              {c.level === null ? notMeasured(c) : <span className="text-fg-secondary">{c.level} ← você está aqui</span>}
             </li>
           ))}
         </ul>
@@ -107,9 +148,9 @@ export function DeltaPanelView({ goalId }: { goalId: string }) {
 
         <ul className="space-y-2">
           {sorted.map((c) => (
-            <li key={c.id} className="flex items-center justify-between text-sm">
+            <li key={c.id} className="flex items-center justify-between gap-4 text-sm">
               <span className="text-fg-primary">{c.label}</span>
-              <span className="text-fg-secondary">{c.level === null ? "ainda não medimos" : c.level}</span>
+              {c.level === null ? notMeasured(c) : <span className="text-fg-secondary">{c.level}</span>}
             </li>
           ))}
         </ul>
@@ -131,15 +172,18 @@ export function DeltaPanelView({ goalId }: { goalId: string }) {
           const state = levelState(c.level, c.confidence);
           return (
             <div key={c.id} className="space-y-1.5">
-              <div className="flex items-baseline justify-between">
+              <div className="flex items-baseline justify-between gap-4">
                 <span className="text-sm text-fg-primary">{c.label}</span>
-                <span className="text-sm text-fg-secondary">
-                  {c.level === null ? "ainda não medimos" : formatLevelRange(c.baselineLevel, c.level)}
-                </span>
+                {c.level !== null && (
+                  <span className="text-sm text-fg-secondary">{formatLevelRange(c.baselineLevel, c.level)}</span>
+                )}
               </div>
 
               {c.level === null ? (
-                <NotMeasuredBar />
+                <>
+                  <NotMeasuredBar />
+                  {notMeasured(c)}
+                </>
               ) : (
                 <LevelBar baseline={c.baselineLevel} current={c.level} />
               )}

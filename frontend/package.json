@@ -9,6 +9,7 @@
     "dev": "pnpm --filter @lifeos/web dev",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
+    "test:coverage": "pnpm -r test:coverage",
     "typecheck": "pnpm -r typecheck",
     "generate:api": "pnpm --filter @lifeos/api-client generate"
   }
