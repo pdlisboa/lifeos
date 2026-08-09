@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "coach-nudge.schema.json",
+  "title": "Saída do Coach (A5) — nudge",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "title", "body", "anchoredOn"],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": ["recognition", "recovery", "recalibration", "scope_reduction", "revision"]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 60,
+      "description": "Cabe numa notificação de celular."
+    },
+    "body": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 280,
+      "description": "No máximo 3 frases."
+    },
+    "anchoredOn": {
+      "type": "string",
+      "minLength": 10,
+      "description": "O fato observado que sustenta a mensagem. Sem fato, é elogio vazio."
+    },
+    "actionLabel": { "type": ["string", "null"], "maxLength": 40 },
+    "actionRoute": { "type": ["string", "null"] },
+    "options": {
+      "type": "array",
+      "maxItems": 4,
+      "description": "Só em scope_reduction: as quatro saídas, todas legítimas.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "label"],
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": ["minimal_mode", "change_approach", "pause", "close_with_debrief"]
+          },
+          "label": { "type": "string" }
+        }
+      }
+    }
+  }
+}

@@ -9,7 +9,7 @@ func TestApplyLevelEventFreezesBaselineOnFirstEvent(t *testing.T) {
 	c := &Competency{ID: "c1"}
 	now := time.Now()
 
-	ev, err := NewLevelEvent("e1", "c1", "u1", nil, 2, ConfidenceLow, SourceProbe, "sondagem inicial", now)
+	ev, err := NewLevelEvent("e1", "c1", "u1", nil, 2, ConfidenceLow, SourceProbe, nil, "sondagem inicial", now)
 	if err != nil {
 		t.Fatalf("NewLevelEvent falhou: %v", err)
 	}
@@ -24,9 +24,13 @@ func TestApplyLevelEventFreezesBaselineOnFirstEvent(t *testing.T) {
 	}
 
 	from := 2
-	ev2, err := NewLevelEvent("e2", "c1", "u1", &from, 4, ConfidenceMedium, SourceSelf, "evidência nova", now)
+	evidenceID := "ev-1"
+	ev2, err := NewLevelEvent("e2", "c1", "u1", &from, 4, ConfidenceMedium, SourceSelf, &evidenceID, "evidência nova", now)
 	if err != nil {
 		t.Fatalf("NewLevelEvent falhou: %v", err)
+	}
+	if ev2.EvidenceID == nil || *ev2.EvidenceID != evidenceID {
+		t.Fatalf("EvidenceID = %v, want %q", ev2.EvidenceID, evidenceID)
 	}
 	if err := c.ApplyLevelEvent(*ev2); err != nil {
 		t.Fatalf("ApplyLevelEvent falhou: %v", err)
@@ -73,11 +77,36 @@ func TestNewLevelEventValidation(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := NewLevelEvent("id", "c1", "u1", nil, tc.toLevel, tc.confidence, tc.source, tc.rationale, now)
+			_, err := NewLevelEvent("id", "c1", "u1", nil, tc.toLevel, tc.confidence, tc.source, nil, tc.rationale, now)
 			if (err != nil) != tc.wantErr {
 				t.Fatalf("erro = %v, wantErr = %v", err, tc.wantErr)
 			}
 		})
+	}
+}
+
+func TestLevelAtTime(t *testing.T) {
+	base := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	events := []LevelEvent{
+		{ToLevel: 2, OccurredAt: base},
+		{ToLevel: 4, OccurredAt: base.AddDate(0, 0, 10)},
+		{ToLevel: 5, OccurredAt: base.AddDate(0, 0, 20)},
+	}
+
+	if lvl := LevelAtTime(events, base.AddDate(0, 0, -1)); lvl != nil {
+		t.Fatalf("LevelAtTime antes do primeiro evento = %v, want nil (não medido, nunca 0)", lvl)
+	}
+	if lvl := LevelAtTime(events, base); lvl == nil || *lvl != 2 {
+		t.Fatalf("LevelAtTime no instante do primeiro evento = %v, want 2", lvl)
+	}
+	if lvl := LevelAtTime(events, base.AddDate(0, 0, 15)); lvl == nil || *lvl != 4 {
+		t.Fatalf("LevelAtTime entre o 2º e o 3º evento = %v, want 4", lvl)
+	}
+	if lvl := LevelAtTime(events, base.AddDate(0, 0, 100)); lvl == nil || *lvl != 5 {
+		t.Fatalf("LevelAtTime depois do último evento = %v, want 5", lvl)
+	}
+	if lvl := LevelAtTime(nil, base); lvl != nil {
+		t.Fatalf("LevelAtTime sem eventos = %v, want nil", lvl)
 	}
 }
 

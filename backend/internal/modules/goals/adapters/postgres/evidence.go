@@ -65,12 +65,65 @@ func ListEvidenceByGoal(ctx context.Context, q Querier, goalID string, ascending
 	return out, nil
 }
 
+// ListEvidenceByGoalAndCompetency filtra o museu por competência tocada
+// (§7.4) — a mesma junção com evidence_competency que alimenta o filtro do
+// query param `competencyId` em GET /goals/{id}/evidence.
+func ListEvidenceByGoalAndCompetency(ctx context.Context, q Querier, goalID, competencyID string, ascending bool, limit int) ([]domain.Evidence, error) {
+	qs := sqlcgen.New(q)
+	var rows []sqlcgen.Evidence
+	var err error
+	if ascending {
+		rows, err = qs.ListEvidenceByGoalAndCompetencyAsc(ctx, sqlcgen.ListEvidenceByGoalAndCompetencyAscParams{GoalID: goalID, CompetencyID: competencyID, Limit: int32(limit)})
+	} else {
+		rows, err = qs.ListEvidenceByGoalAndCompetencyDesc(ctx, sqlcgen.ListEvidenceByGoalAndCompetencyDescParams{GoalID: goalID, CompetencyID: competencyID, Limit: int32(limit)})
+	}
+	if err != nil {
+		return nil, fmt.Errorf("listar evidence por competência: %w", err)
+	}
+	out := make([]domain.Evidence, len(rows))
+	for i, r := range rows {
+		out[i] = *toDomainEvidence(r)
+	}
+	return out, nil
+}
+
 func CountEvidenceByGoal(ctx context.Context, q Querier, goalID string) (int, error) {
 	n, err := sqlcgen.New(q).CountEvidenceByGoal(ctx, goalID)
 	if err != nil {
 		return 0, fmt.Errorf("contar evidence: %w", err)
 	}
 	return int(n), nil
+}
+
+// InsertEvidenceCompetency é RN-agnóstico: só grava a tag "essa evidência
+// tocou essa competência" (§7 da UX — "Competências tocadas"), validada
+// contra as competências da meta na camada app antes de chamar aqui.
+func InsertEvidenceCompetency(ctx context.Context, q Querier, evidenceID, competencyID string) error {
+	err := sqlcgen.New(q).InsertEvidenceCompetency(ctx, sqlcgen.InsertEvidenceCompetencyParams{
+		EvidenceID:   evidenceID,
+		CompetencyID: competencyID,
+	})
+	if err != nil {
+		return fmt.Errorf("ligar evidence a competency: %w", err)
+	}
+	return nil
+}
+
+// ListCompetencyIDsForEvidences agrupa por evidência de uma vez só — evita
+// N+1 ao montar o museu (§7.4).
+func ListCompetencyIDsForEvidences(ctx context.Context, q Querier, evidenceIDs []string) (map[string][]string, error) {
+	out := make(map[string][]string, len(evidenceIDs))
+	if len(evidenceIDs) == 0 {
+		return out, nil
+	}
+	rows, err := sqlcgen.New(q).ListCompetencyIDsForEvidences(ctx, evidenceIDs)
+	if err != nil {
+		return nil, fmt.Errorf("listar competências das evidências: %w", err)
+	}
+	for _, r := range rows {
+		out[r.EvidenceID] = append(out[r.EvidenceID], r.CompetencyID)
+	}
+	return out, nil
 }
 
 func toDomainEvidence(r sqlcgen.Evidence) *domain.Evidence {

@@ -66,8 +66,9 @@ func TestUpdateCompetencyStateAndLevelEvents(t *testing.T) {
 	q, userID := setup(t)
 	g := newGoal(t, q, userID, "Meta")
 	c := newCompetency(t, q, g, "testing", "Testes")
+	proof := newEvidence(t, q, g, "evidência que sustentou a medição")
 
-	ev, err := domain.NewLevelEvent(mustID(t), c.ID, userID, nil, 2, domain.ConfidenceHigh, domain.SourceSelf, "primeira medição", time.Now())
+	ev, err := domain.NewLevelEvent(mustID(t), c.ID, userID, nil, 2, domain.ConfidenceHigh, domain.SourceSelf, &proof.ID, "primeira medição", time.Now())
 	if err != nil {
 		t.Fatalf("domain.NewLevelEvent: %v", err)
 	}
@@ -98,6 +99,9 @@ func TestUpdateCompetencyStateAndLevelEvents(t *testing.T) {
 	}
 	if len(events) != 1 || events[0].Rationale != "primeira medição" {
 		t.Fatalf("eventos = %+v", events)
+	}
+	if events[0].EvidenceID == nil || *events[0].EvidenceID != proof.ID {
+		t.Fatalf("EvidenceID = %v, want %q", events[0].EvidenceID, proof.ID)
 	}
 
 	forGoal, err := ListLevelEventsForGoal(context.Background(), q, g.ID)

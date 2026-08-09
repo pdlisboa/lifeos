@@ -153,6 +153,7 @@ type levelEventDTO struct {
 	Source       string  `json:"source"`
 	Rationale    string  `json:"rationale"`
 	AssessmentID *string `json:"assessmentId"`
+	EvidenceID   *string `json:"evidenceId"`
 	OccurredAt   string  `json:"occurredAt"`
 }
 
@@ -165,7 +166,30 @@ func toLevelEventDTO(e domain.LevelEvent) levelEventDTO {
 		Source:       string(e.Source),
 		Rationale:    e.Rationale,
 		AssessmentID: e.AssessmentID,
+		EvidenceID:   e.EvidenceID,
 		OccurredAt:   e.OccurredAt.Format(time.RFC3339),
+	}
+}
+
+type projectionDTO struct {
+	Available      bool     `json:"available"`
+	Reason         *string  `json:"reason"`
+	MinutesPerWeek *float64 `json:"minutesPerWeek"`
+	NextMilestone  *string  `json:"nextMilestone"`
+	WeeksToNextMin *int     `json:"weeksToNextMin"`
+	WeeksToNextMax *int     `json:"weeksToNextMax"`
+	IfYouDouble    *string  `json:"ifYouDouble"`
+}
+
+func toProjectionDTO(p domain.Projection) projectionDTO {
+	return projectionDTO{
+		Available:      p.Available,
+		Reason:         p.Reason,
+		MinutesPerWeek: p.MinutesPerWeek,
+		NextMilestone:  p.NextMilestone,
+		WeeksToNextMin: p.WeeksToNextMin,
+		WeeksToNextMax: p.WeeksToNextMax,
+		IfYouDouble:    p.IfYouDouble,
 	}
 }
 
@@ -448,15 +472,17 @@ type evidenceCardDTO struct {
 	LevelsAtTime      map[string]int `json:"levelsAtTime"`
 }
 
-// toEvidenceCardDTO monta o cartão do museu (§7.4) sem comparação — a
-// reconstrução point-in-time e o resumo de avaliação dependem do agente
-// avaliador, que só chega na Fatia 4. Aqui é honestamente uma lista simples.
-func toEvidenceCardDTO(e domain.Evidence) evidenceCardDTO {
+// toEvidenceCardDTO monta o cartão do museu (§7.4). AssessmentSummary
+// continua nil — depende do agente avaliador (Fatia 4). CompetencyIDs e
+// LevelsAtTime já não dependem de agente nenhum: a tag de competência é
+// manual (§7 da UX) e o nível point-in-time vem direto do histórico de
+// eventos, que existe desde a Fatia 1.
+func toEvidenceCardDTO(c app.EvidenceCard) evidenceCardDTO {
 	return evidenceCardDTO{
-		evidenceDTO:       toEvidenceDTO(&e),
-		CompetencyIDs:     []string{},
+		evidenceDTO:       toEvidenceDTO(&c.Evidence),
+		CompetencyIDs:     c.CompetencyIDs,
 		AssessmentSummary: nil,
-		LevelsAtTime:      map[string]int{},
+		LevelsAtTime:      c.LevelsAtTime,
 	}
 }
 

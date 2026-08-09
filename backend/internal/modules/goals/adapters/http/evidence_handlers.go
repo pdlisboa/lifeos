@@ -12,14 +12,15 @@ import (
 )
 
 type createEvidenceRequest struct {
-	Kind         string  `json:"kind"`
-	Title        *string `json:"title"`
-	Body         *string `json:"body"`
-	BlobKey      *string `json:"blobKey"`
-	ExternalURL  *string `json:"externalUrl"`
-	Language     *string `json:"language"`
-	ActionID     *string `json:"actionId"`
-	SupersedesID *string `json:"supersedesId"`
+	Kind          string   `json:"kind"`
+	Title         *string  `json:"title"`
+	Body          *string  `json:"body"`
+	BlobKey       *string  `json:"blobKey"`
+	ExternalURL   *string  `json:"externalUrl"`
+	Language      *string  `json:"language"`
+	ActionID      *string  `json:"actionId"`
+	SupersedesID  *string  `json:"supersedesId"`
+	CompetencyIDs []string `json:"competencyIds"`
 }
 
 // CreateEvidence responde 202: a evidência é gravada de forma síncrona (você
@@ -39,17 +40,18 @@ func (h *Handler) CreateEvidence(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ev, err := h.Service.CreateEvidence(r.Context(), app.CreateEvidenceInput{
-		UserID:       uid,
-		GoalID:       goalID,
-		ActionID:     req.ActionID,
-		Kind:         domain.EvidenceKind(req.Kind),
-		Title:        req.Title,
-		Body:         req.Body,
-		BlobKey:      req.BlobKey,
-		ExternalURL:  req.ExternalURL,
-		Language:     req.Language,
-		SupersedesID: req.SupersedesID,
-		Timezone:     h.userLocation(r.Context(), uid),
+		UserID:        uid,
+		GoalID:        goalID,
+		ActionID:      req.ActionID,
+		Kind:          domain.EvidenceKind(req.Kind),
+		Title:         req.Title,
+		Body:          req.Body,
+		BlobKey:       req.BlobKey,
+		ExternalURL:   req.ExternalURL,
+		Language:      req.Language,
+		SupersedesID:  req.SupersedesID,
+		CompetencyIDs: req.CompetencyIDs,
+		Timezone:      h.userLocation(r.Context(), uid),
 	})
 	if err != nil {
 		writeAppError(w, err)
@@ -82,15 +84,19 @@ func (h *Handler) ListEvidence(w http.ResponseWriter, r *http.Request) {
 	}
 	ascending := r.URL.Query().Get("order") != "desc"
 	limit := parseLimit(r, 30)
+	var competencyID *string
+	if v := r.URL.Query().Get("competencyId"); v != "" {
+		competencyID = &v
+	}
 
-	items, err := h.Service.ListEvidence(r.Context(), uid, chi.URLParam(r, "goalId"), ascending, limit)
+	items, err := h.Service.ListEvidence(r.Context(), uid, chi.URLParam(r, "goalId"), competencyID, ascending, limit)
 	if err != nil {
 		writeAppError(w, err)
 		return
 	}
 	cards := make([]evidenceCardDTO, len(items))
-	for i, e := range items {
-		cards[i] = toEvidenceCardDTO(e)
+	for i, c := range items {
+		cards[i] = toEvidenceCardDTO(c)
 	}
 	httpx.WriteJSON(w, http.StatusOK, pageDTO[evidenceCardDTO]{Items: cards, HasMore: false})
 }

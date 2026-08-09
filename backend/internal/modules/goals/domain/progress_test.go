@@ -46,6 +46,52 @@ func TestComputeConsistencyNeverExposesStreak(t *testing.T) {
 	}
 }
 
+func TestComputeProjectionNoSessions(t *testing.T) {
+	p := ComputeProjection(0, 0, 0)
+	if p.Available {
+		t.Fatal("Available deveria ser false sem nenhuma sessão")
+	}
+	if p.Reason == nil || *p.Reason == "" {
+		t.Fatal("Reason deveria explicar a ausência de dado")
+	}
+	if p.MinutesPerWeek != nil {
+		t.Fatalf("MinutesPerWeek = %v, want nil quando indisponível", p.MinutesPerWeek)
+	}
+}
+
+func TestComputeProjectionLessThanThreeWeeks(t *testing.T) {
+	p := ComputeProjection(300, 5, 14) // 2 semanas de span
+	if p.Available {
+		t.Fatal("Available deveria ser false com menos de 3 semanas de histórico")
+	}
+	want := "ainda coletando ritmo (2 de 3 semanas)"
+	if p.Reason == nil || *p.Reason != want {
+		t.Fatalf("Reason = %v, want %q", p.Reason, want)
+	}
+}
+
+func TestComputeProjectionAvailable(t *testing.T) {
+	p := ComputeProjection(860, 12, 25) // >= 21 dias de span
+	if !p.Available {
+		t.Fatal("Available deveria ser true com >= 3 semanas de histórico")
+	}
+	if p.Reason != nil {
+		t.Fatalf("Reason = %v, want nil quando disponível", p.Reason)
+	}
+	if p.MinutesPerWeek == nil {
+		t.Fatal("MinutesPerWeek não deveria ser nil quando disponível")
+	}
+	want := 860.0 / minutesPerWeekDivisor
+	if *p.MinutesPerWeek != want {
+		t.Fatalf("MinutesPerWeek = %v, want %v", *p.MinutesPerWeek, want)
+	}
+	// Nunca inventa quanto falta pro próximo marco (CLAUDE.md, "nunca invente
+	// previsão") — sem estimativa de esforço no modelo, isso fica nil sempre.
+	if p.NextMilestone != nil || p.WeeksToNextMin != nil || p.WeeksToNextMax != nil || p.IfYouDouble != nil {
+		t.Fatal("campos de chegada ao marco deveriam ser nil nesta fatia — não há esforço estimado no modelo")
+	}
+}
+
 func TestRisesInWindow(t *testing.T) {
 	now := time.Now()
 	l1, l2, l3 := 1, 2, 3

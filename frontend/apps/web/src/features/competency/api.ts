@@ -8,3 +8,12 @@ export function setLevel(goalId: string, competencyId: string, body: { level: nu
     }),
   );
 }
+
+/** Série temporal de níveis (§5.3) — vem em ordem cronológica, cada evento com o rationale que sustentou a mudança. */
+export function fetchCompetencyHistory(goalId: string, competencyId: string) {
+  return unwrap(
+    api.GET("/goals/{goalId}/competencies/{competencyId}/history", {
+      params: { path: { goalId, competencyId } },
+    }),
+  );
+}

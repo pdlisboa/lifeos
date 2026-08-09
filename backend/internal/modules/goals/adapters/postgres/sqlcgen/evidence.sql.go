@@ -94,6 +94,145 @@ func (q *Queries) InsertEvidence(ctx context.Context, arg InsertEvidenceParams) 
 	return err
 }
 
+const insertEvidenceCompetency = `-- name: InsertEvidenceCompetency :exec
+INSERT INTO evidence_competency (evidence_id, competency_id) VALUES ($1, $2)
+`
+
+type InsertEvidenceCompetencyParams struct {
+	EvidenceID   string
+	CompetencyID string
+}
+
+func (q *Queries) InsertEvidenceCompetency(ctx context.Context, arg InsertEvidenceCompetencyParams) error {
+	_, err := q.db.Exec(ctx, insertEvidenceCompetency, arg.EvidenceID, arg.CompetencyID)
+	return err
+}
+
+const listCompetencyIDsForEvidences = `-- name: ListCompetencyIDsForEvidences :many
+SELECT evidence_id, competency_id FROM evidence_competency
+WHERE evidence_id = ANY($1::uuid[])
+`
+
+// traz os pares (evidence_id, competency_id) pras evidências pedidas de uma
+// vez só — evita N+1 ao montar o museu (§7.4).
+func (q *Queries) ListCompetencyIDsForEvidences(ctx context.Context, evidenceIds []string) ([]EvidenceCompetency, error) {
+	rows, err := q.db.Query(ctx, listCompetencyIDsForEvidences, evidenceIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []EvidenceCompetency
+	for rows.Next() {
+		var i EvidenceCompetency
+		if err := rows.Scan(&i.EvidenceID, &i.CompetencyID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEvidenceByGoalAndCompetencyAsc = `-- name: ListEvidenceByGoalAndCompetencyAsc :many
+SELECT e.id, e.goal_id, e.user_id, e.action_id, e.kind, e.title, e.body, e.blob_key,
+    e.external_url, e.language, e.supersedes_id, e.local_on, e.created_at
+FROM evidence e
+JOIN evidence_competency ec ON ec.evidence_id = e.id
+WHERE e.goal_id = $1 AND ec.competency_id = $2
+ORDER BY e.created_at ASC LIMIT $3
+`
+
+type ListEvidenceByGoalAndCompetencyAscParams struct {
+	GoalID       string
+	CompetencyID string
+	Limit        int32
+}
+
+func (q *Queries) ListEvidenceByGoalAndCompetencyAsc(ctx context.Context, arg ListEvidenceByGoalAndCompetencyAscParams) ([]Evidence, error) {
+	rows, err := q.db.Query(ctx, listEvidenceByGoalAndCompetencyAsc, arg.GoalID, arg.CompetencyID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Evidence
+	for rows.Next() {
+		var i Evidence
+		if err := rows.Scan(
+			&i.ID,
+			&i.GoalID,
+			&i.UserID,
+			&i.ActionID,
+			&i.Kind,
+			&i.Title,
+			&i.Body,
+			&i.BlobKey,
+			&i.ExternalUrl,
+			&i.Language,
+			&i.SupersedesID,
+			&i.LocalOn,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEvidenceByGoalAndCompetencyDesc = `-- name: ListEvidenceByGoalAndCompetencyDesc :many
+SELECT e.id, e.goal_id, e.user_id, e.action_id, e.kind, e.title, e.body, e.blob_key,
+    e.external_url, e.language, e.supersedes_id, e.local_on, e.created_at
+FROM evidence e
+JOIN evidence_competency ec ON ec.evidence_id = e.id
+WHERE e.goal_id = $1 AND ec.competency_id = $2
+ORDER BY e.created_at DESC LIMIT $3
+`
+
+type ListEvidenceByGoalAndCompetencyDescParams struct {
+	GoalID       string
+	CompetencyID string
+	Limit        int32
+}
+
+func (q *Queries) ListEvidenceByGoalAndCompetencyDesc(ctx context.Context, arg ListEvidenceByGoalAndCompetencyDescParams) ([]Evidence, error) {
+	rows, err := q.db.Query(ctx, listEvidenceByGoalAndCompetencyDesc, arg.GoalID, arg.CompetencyID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Evidence
+	for rows.Next() {
+		var i Evidence
+		if err := rows.Scan(
+			&i.ID,
+			&i.GoalID,
+			&i.UserID,
+			&i.ActionID,
+			&i.Kind,
+			&i.Title,
+			&i.Body,
+			&i.BlobKey,
+			&i.ExternalUrl,
+			&i.Language,
+			&i.SupersedesID,
+			&i.LocalOn,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listEvidenceByGoalAsc = `-- name: ListEvidenceByGoalAsc :many
 SELECT id, goal_id, user_id, action_id, kind, title, body, blob_key,
     external_url, language, supersedes_id, local_on, created_at

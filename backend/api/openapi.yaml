@@ -432,6 +432,12 @@ paths:
               properties:
                 level:     { type: integer, minimum: 0, maximum: 5 }
                 rationale: { type: string, minLength: 3 }
+                evidenceId:
+                  type: [string, 'null']
+                  format: uuid
+                  description: |
+                    evidência que sustentou a mudança, quando houver — é o que o
+                    gráfico temporal usa pra linkar cada ponto (05-ux.md §5.3).
       responses:
         '200':
           description: ok
@@ -720,6 +726,12 @@ paths:
                   type: string
                   format: uuid
                   description: correção cria nova evidência; a antiga é imutável (RN-06)
+                competencyIds:
+                  type: array
+                  items: { type: string, format: uuid }
+                  description: |
+                    "Competências tocadas" (05-ux.md §7) — marcadas por você na Fatia
+                    1/2, sem cerimônia. Alimenta o filtro e a comparação do museu (§7.4).
       responses:
         '202':
           description: evidência gravada, avaliação enfileirada
@@ -1249,6 +1261,10 @@ components:
             Obrigatório. Nível que muda sem explicação é nível em que você não
             confia, e um número em que você não confia não motiva ninguém.
         assessmentId: { type: [string, 'null'], format: uuid }
+        evidenceId:
+          type: [string, 'null']
+          format: uuid
+          description: evidência que sustentou a mudança, quando houver (05-ux.md §5.3).
         occurredAt:   { type: string, format: date-time }
 
     Projection:

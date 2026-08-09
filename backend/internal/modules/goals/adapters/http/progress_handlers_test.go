@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/phablo/lifeos/internal/modules/goals/app"
 )
@@ -66,6 +67,68 @@ func TestGetDeltaWithLevelSetIncludesWindow(t *testing.T) {
 func TestGetDeltaNotFoundHandler(t *testing.T) {
 	ts := newTestServer(t)
 	rec := ts.do(t, "GET", "/goals/00000000-0000-0000-0000-000000000000/delta", nil)
+	if rec.Code != 404 {
+		t.Fatalf("status = %d, want 404", rec.Code)
+	}
+}
+
+func TestGetProjectionUnavailableHandler(t *testing.T) {
+	ts := newTestServer(t)
+	goalID, _ := activateReadyGoal(t, ts, "Meta ativa")
+
+	rec := ts.do(t, "GET", "/goals/"+goalID+"/projection", nil)
+	if rec.Code != 200 {
+		t.Fatalf("status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	p := decodeJSON[projectionDTO](t, rec)
+	if p.Available {
+		t.Fatal("Available deveria ser false sem sessão nenhuma")
+	}
+	if p.Reason == nil || *p.Reason == "" {
+		t.Fatal("Reason deveria explicar a ausência de dado")
+	}
+	if p.MinutesPerWeek != nil || p.WeeksToNextMin != nil || p.WeeksToNextMax != nil {
+		t.Fatal("nunca inventa previsão: campos de ritmo/chegada deveriam ser nil quando indisponível")
+	}
+}
+
+// TestGetProjectionAvailableHandler cobre a regra de >= 3 semanas de
+// histórico (§7.2) registrando sessões de verdade via API, espaçadas o
+// suficiente pra passar do limiar.
+func TestGetProjectionAvailableHandler(t *testing.T) {
+	ts := newTestServer(t)
+	goalID, _ := activateReadyGoal(t, ts, "Meta ativa")
+
+	now := time.Now().UTC()
+	for _, daysAgo := range []int{25, 15, 5, 1} {
+		startedAt := now.AddDate(0, 0, -daysAgo).Format(time.RFC3339)
+		rec := ts.do(t, "POST", "/goals/"+goalID+"/sessions", map[string]any{
+			"startedAt": startedAt, "durationMin": 30,
+		})
+		if rec.Code != 201 {
+			t.Fatalf("criar sessão (%d dias atrás): status = %d, body=%s", daysAgo, rec.Code, rec.Body.String())
+		}
+	}
+
+	rec := ts.do(t, "GET", "/goals/"+goalID+"/projection", nil)
+	if rec.Code != 200 {
+		t.Fatalf("status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	p := decodeJSON[projectionDTO](t, rec)
+	if !p.Available {
+		t.Fatalf("Available deveria ser true com >= 3 semanas de histórico, reason=%v", p.Reason)
+	}
+	if p.MinutesPerWeek == nil || *p.MinutesPerWeek <= 0 {
+		t.Fatalf("MinutesPerWeek = %v, want > 0", p.MinutesPerWeek)
+	}
+	if p.NextMilestone != nil || p.WeeksToNextMin != nil || p.WeeksToNextMax != nil || p.IfYouDouble != nil {
+		t.Fatal("sem estimativa de esforço no modelo, esses campos devem continuar nil (nunca inventar previsão)")
+	}
+}
+
+func TestGetProjectionNotFoundHandler(t *testing.T) {
+	ts := newTestServer(t)
+	rec := ts.do(t, "GET", "/goals/00000000-0000-0000-0000-000000000000/projection", nil)
 	if rec.Code != 404 {
 		t.Fatalf("status = %d, want 404", rec.Code)
 	}

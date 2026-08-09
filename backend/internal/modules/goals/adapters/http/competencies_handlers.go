@@ -11,8 +11,9 @@ import (
 )
 
 type setLevelRequest struct {
-	Level     int    `json:"level"`
-	Rationale string `json:"rationale"`
+	Level      int     `json:"level"`
+	Rationale  string  `json:"rationale"`
+	EvidenceID *string `json:"evidenceId"`
 }
 
 // SetCompetencyLevel é o caminho manual de RN-04 quando não há agente
@@ -33,6 +34,7 @@ func (h *Handler) SetCompetencyLevel(w http.ResponseWriter, r *http.Request) {
 		CompetencyID: chi.URLParam(r, "competencyId"),
 		Level:        req.Level,
 		Rationale:    req.Rationale,
+		EvidenceID:   req.EvidenceID,
 	})
 	if err != nil {
 		writeAppError(w, err)

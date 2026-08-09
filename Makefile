@@ -1,4 +1,4 @@
-.PHONY: build up down restart logs ps migrate-up migrate-status create-user test vet fmt sqlc-generate sqlc-diff
+.PHONY: build up down restart logs ps migrate-up migrate-status create-user seed test vet fmt sqlc-generate sqlc-diff
 
 build:
 	docker compose build
@@ -27,6 +27,13 @@ migrate-status:
 # uso: make create-user EMAIL=voce@exemplo.com PASSWORD=senha-forte
 create-user:
 	docker compose run --rm --entrypoint /app/migrate api create-user $(EMAIL) $(PASSWORD)
+
+# popula uma meta de Go com ~10 semanas de histórico (sessões, evidências,
+# eventos de nível) — só roda com ENV=development (guard no próprio
+# cmd/seed). Rode `make create-user` antes se ainda não houver usuário.
+# uso opcional: make seed SEED_EMAIL=dev@lifeos.local (senão usa o usuário mais antigo)
+seed:
+	docker compose run --rm -e ENV=development -e SEED_EMAIL=$(SEED_EMAIL) --entrypoint /app/seed api
 
 test:
 	cd backend && go test ./...

@@ -108,3 +108,53 @@ func TestEvidenceIsImmutableRN06(t *testing.T) {
 		t.Fatalf("body deveria continuar 'conteúdo original', got %v", fetched.Body)
 	}
 }
+
+// TestEvidenceCompetencyLinkAndFilter cobre a tag "competências tocadas"
+// (§7 da UX) e o filtro do museu por competência (§7.4).
+func TestEvidenceCompetencyLinkAndFilter(t *testing.T) {
+	q, userID := setup(t)
+	g := newGoal(t, q, userID, "Meta")
+	touched := newCompetency(t, q, g, "concurrency", "Concorrência")
+	other := newCompetency(t, q, g, "testing", "Testes")
+
+	tagged := newEvidence(t, q, g, "tocou concorrência")
+	if err := InsertEvidenceCompetency(context.Background(), q, tagged.ID, touched.ID); err != nil {
+		t.Fatalf("InsertEvidenceCompetency: %v", err)
+	}
+	newEvidence(t, q, g, "não tocou nenhuma competência")
+
+	links, err := ListCompetencyIDsForEvidences(context.Background(), q, []string{tagged.ID})
+	if err != nil {
+		t.Fatalf("ListCompetencyIDsForEvidences: %v", err)
+	}
+	if ids := links[tagged.ID]; len(ids) != 1 || ids[0] != touched.ID {
+		t.Fatalf("links[%s] = %v, want [%s]", tagged.ID, ids, touched.ID)
+	}
+
+	filtered, err := ListEvidenceByGoalAndCompetency(context.Background(), q, g.ID, touched.ID, true, 10)
+	if err != nil {
+		t.Fatalf("ListEvidenceByGoalAndCompetency: %v", err)
+	}
+	if len(filtered) != 1 || filtered[0].ID != tagged.ID {
+		t.Fatalf("filtro por competência tocada = %+v, want só %s", filtered, tagged.ID)
+	}
+
+	empty, err := ListEvidenceByGoalAndCompetency(context.Background(), q, g.ID, other.ID, false, 10)
+	if err != nil {
+		t.Fatalf("ListEvidenceByGoalAndCompetency (desc, não tocada): %v", err)
+	}
+	if len(empty) != 0 {
+		t.Fatalf("filtro por competência não tocada deveria vir vazio, got %+v", empty)
+	}
+}
+
+func TestListCompetencyIDsForEvidencesEmptyInput(t *testing.T) {
+	q, _ := setup(t)
+	links, err := ListCompetencyIDsForEvidences(context.Background(), q, nil)
+	if err != nil {
+		t.Fatalf("ListCompetencyIDsForEvidences com slice vazia: %v", err)
+	}
+	if len(links) != 0 {
+		t.Fatalf("esperava mapa vazio, got %v", links)
+	}
+}

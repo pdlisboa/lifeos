@@ -25,6 +25,7 @@ func RegisterRoutes(r chi.Router, h *Handler) {
 			r.Post("/probe/skip", h.SkipProbe)
 
 			r.Get("/delta", h.GetDelta)
+			r.Get("/projection", h.GetProjection)
 			r.Get("/consistency", h.GetConsistency)
 			r.Get("/track", h.GetTrack)
 

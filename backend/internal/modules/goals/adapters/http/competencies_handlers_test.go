@@ -58,6 +58,62 @@ func TestSetCompetencyLevelNotFoundHandler(t *testing.T) {
 	}
 }
 
+// TestSetCompetencyLevelWithEvidenceLinksHistory cobre §5.3 da UX: o
+// gráfico temporal precisa poder linkar cada ponto à evidência que
+// sustentou a mudança.
+func TestSetCompetencyLevelWithEvidenceLinksHistory(t *testing.T) {
+	ts := newTestServer(t)
+	goalID, compID := createGoalWithCompetencies(t, ts, "Meta")
+
+	evRec := ts.do(t, "POST", "/goals/"+goalID+"/evidence", map[string]any{
+		"kind": "code_snippet", "body": "func main() {}",
+	})
+	if evRec.Code != 202 {
+		t.Fatalf("criar evidência: status = %d, body=%s", evRec.Code, evRec.Body.String())
+	}
+	var created struct {
+		Evidence evidenceDTO `json:"evidence"`
+	}
+	decodeInto(t, evRec, &created)
+
+	rec := ts.do(t, "PUT", "/goals/x/competencies/"+compID+"/level", map[string]any{
+		"level": 3, "rationale": "essa evidência mostra o nível 3", "evidenceId": created.Evidence.ID,
+	})
+	if rec.Code != 200 {
+		t.Fatalf("status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+
+	histRec := ts.do(t, "GET", "/goals/x/competencies/"+compID+"/history", nil)
+	events := decodeJSON[[]levelEventDTO](t, histRec)
+	if len(events) != 1 {
+		t.Fatalf("esperava 1 evento, got %d", len(events))
+	}
+	if events[0].EvidenceID == nil || *events[0].EvidenceID != created.Evidence.ID {
+		t.Fatalf("evidenceId = %v, want %q", events[0].EvidenceID, created.Evidence.ID)
+	}
+}
+
+func TestSetCompetencyLevelWithEvidenceFromOtherGoalFails(t *testing.T) {
+	ts := newTestServer(t)
+	goalAID, _ := activateReadyGoal(t, ts, "Meta A")
+	_, compBID := createGoalWithCompetencies(t, ts, "Meta B")
+
+	evRec := ts.do(t, "POST", "/goals/"+goalAID+"/evidence", map[string]any{
+		"kind": "code_snippet", "body": "func main() {}",
+	})
+	var created struct {
+		Evidence evidenceDTO `json:"evidence"`
+	}
+	decodeInto(t, evRec, &created)
+
+	rec := ts.do(t, "PUT", "/goals/x/competencies/"+compBID+"/level", map[string]any{
+		"level": 3, "rationale": "evidência de outra meta", "evidenceId": created.Evidence.ID,
+	})
+	if rec.Code < 300 {
+		t.Fatalf("evidência de outra meta deveria ser rejeitada, status = %d", rec.Code)
+	}
+}
+
 func TestCompetencyHistoryHandler(t *testing.T) {
 	ts := newTestServer(t)
 	_, compID := createGoalWithCompetencies(t, ts, "Meta")

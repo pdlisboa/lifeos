@@ -5,13 +5,20 @@ import { http, HttpResponse } from "msw";
 import { server } from "@/test/server";
 import { API_BASE } from "@/test/api-base";
 import { renderRoute } from "@/test/render";
-import { makeCompetency, makeDeltaCompetency, makeDeltaPanel } from "@/test/fixtures";
+import { makeCompetency, makeDeltaCompetency, makeDeltaPanel, makeProjection } from "@/test/fixtures";
 import { DeltaPanelView } from "./delta-panel";
 
 const GOAL_ID = "goal-delta";
 
 function mockDelta(panel: ReturnType<typeof makeDeltaPanel>) {
-  server.use(http.get(`${API_BASE}/goals/${GOAL_ID}/delta`, () => HttpResponse.json(panel)));
+  server.use(
+    http.get(`${API_BASE}/goals/${GOAL_ID}/delta`, () => HttpResponse.json(panel)),
+    http.get(`${API_BASE}/goals/${GOAL_ID}/projection`, () => HttpResponse.json(makeProjection())),
+  );
+}
+
+function mockProjection(projection: ReturnType<typeof makeProjection>) {
+  server.use(http.get(`${API_BASE}/goals/${GOAL_ID}/projection`, () => HttpResponse.json(projection)));
 }
 
 function renderDelta() {
@@ -191,6 +198,42 @@ describe("DeltaPanelView", () => {
       await screen.findByText("Subiu muito");
       const labels = screen.getAllByText(/Subiu/).map((el) => el.textContent);
       expect(labels).toEqual(["Subiu muito", "Subiu pouco"]);
+    });
+
+    it("rodapé mostra o reason quando a projeção está indisponível, sem inventar chegada", async () => {
+      mockDelta(makeDeltaPanel({ daysActive: 40, totals: { evidenceCount: 12, milestonesDone: 2, sessionMinutes: 300 } }));
+      mockProjection(makeProjection({ available: false, reason: "ainda coletando ritmo (2 de 3 semanas)" }));
+      renderDelta();
+
+      expect(await screen.findByText("ainda coletando ritmo (2 de 3 semanas)")).toBeInTheDocument();
+    });
+
+    it("rodapé mostra o ritmo real quando a projeção está disponível", async () => {
+      mockDelta(makeDeltaPanel({ daysActive: 40, totals: { evidenceCount: 12, milestonesDone: 2, sessionMinutes: 300 } }));
+      mockProjection(makeProjection({ available: true, reason: null, minutesPerWeek: 192 }));
+      renderDelta();
+
+      expect(await screen.findByText(/~3,2h\/semana/)).toBeInTheDocument();
+    });
+
+    it("clicar no nome de uma competência medida abre o gráfico temporal", async () => {
+      mockDelta(
+        makeDeltaPanel({
+          daysActive: 40,
+          totals: { evidenceCount: 12, milestonesDone: 2, sessionMinutes: 300 },
+          competencies: [makeDeltaCompetency({ id: "c1", label: "Concorrência", level: 4, baselineLevel: 2, delta: 2 })],
+        }),
+      );
+      server.use(http.get(`${API_BASE}/goals/${GOAL_ID}/competencies/c1/history`, () => HttpResponse.json([])));
+      const user = userEvent.setup();
+      renderDelta();
+
+      const toggle = await screen.findByRole("button", { name: "Concorrência" });
+      expect(toggle).toHaveAttribute("aria-expanded", "false");
+
+      await user.click(toggle);
+      expect(toggle).toHaveAttribute("aria-expanded", "true");
+      expect(await screen.findByText("Nenhum evento de nível ainda.")).toBeInTheDocument();
     });
   });
 

@@ -13,7 +13,10 @@ type Probe = components["schemas"]["Probe"];
 type ProbeTurn = components["schemas"]["ProbeTurn"];
 type Consistency = components["schemas"]["Consistency"];
 type Evidence = components["schemas"]["Evidence"];
+type EvidenceCard = components["schemas"]["EvidenceCard"];
 type Session = components["schemas"]["Session"];
+type LevelEvent = components["schemas"]["LevelEvent"];
+type Projection = components["schemas"]["Projection"];
 
 let seq = 0;
 /** IDs previsíveis e distintos entre fixtures, sem precisar de uuid de verdade nos testes. */
@@ -201,6 +204,44 @@ export function makeEvidence(overrides: Partial<Evidence> = {}): Evidence {
     language: null,
     supersedesId: null,
     createdAt: "2026-08-09T12:00:00Z",
+    ...overrides,
+  };
+}
+
+export function makeEvidenceCard(overrides: Partial<EvidenceCard> = {}): EvidenceCard {
+  return {
+    ...makeEvidence(),
+    competencyIds: [],
+    assessmentSummary: null,
+    levelsAtTime: {},
+    ...overrides,
+  };
+}
+
+export function makeLevelEvent(overrides: Partial<LevelEvent> = {}): LevelEvent {
+  return {
+    id: nextId("levelevent"),
+    fromLevel: null,
+    toLevel: 2,
+    confidence: "high",
+    source: "self",
+    rationale: "consigo fazer isso sem consultar exemplos",
+    assessmentId: null,
+    evidenceId: null,
+    occurredAt: "2026-06-01T12:00:00Z",
+    ...overrides,
+  };
+}
+
+export function makeProjection(overrides: Partial<Projection> = {}): Projection {
+  return {
+    available: false,
+    reason: "ainda coletando ritmo (0 de 3 semanas)",
+    minutesPerWeek: null,
+    nextMilestone: null,
+    weeksToNextMin: null,
+    weeksToNextMax: null,
+    ifYouDouble: null,
     ...overrides,
   };
 }

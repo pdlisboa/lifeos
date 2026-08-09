@@ -1,6 +1,9 @@
 package http
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
 
 func TestCreateAndGetEvidenceHandler(t *testing.T) {
 	ts := newTestServer(t)
@@ -98,5 +101,80 @@ func TestListEvidenceOrderAndLimitParams(t *testing.T) {
 	fallbackPage := decodeJSON[pageDTO[evidenceCardDTO]](t, fallbackRec)
 	if len(fallbackPage.Items) != 2 {
 		t.Fatalf("limit inválido deveria cair no fallback (30) e trazer as 2 evidências, got %d", len(fallbackPage.Items))
+	}
+}
+
+// TestListEvidenceCompetencyIDsAndLevelsAtTime cobre o museu de verdade
+// (§7.4): a tag de "competências tocadas" na criação, o filtro por
+// competência, e a reconstrução point-in-time de levelsAtTime — as três
+// coisas que a Fatia 1 deixava sempre vazias.
+func TestListEvidenceCompetencyIDsAndLevelsAtTime(t *testing.T) {
+	ts := newTestServer(t)
+	goalID, _ := activateReadyGoal(t, ts, "Meta ativa")
+
+	detail, err := ts.service.GetGoal(context.Background(), ts.userID, goalID)
+	if err != nil {
+		t.Fatalf("GetGoal: %v", err)
+	}
+	touched := detail.Competencies[0].ID
+	other := detail.Competencies[1].ID
+
+	levelRec := ts.do(t, "PUT", "/goals/x/competencies/"+touched+"/level", map[string]any{
+		"level": 3, "rationale": "nível antes da evidência",
+	})
+	if levelRec.Code != 200 {
+		t.Fatalf("SetCompetencyLevel: status = %d, body=%s", levelRec.Code, levelRec.Body.String())
+	}
+
+	rec := ts.do(t, "POST", "/goals/"+goalID+"/evidence", map[string]any{
+		"kind": "code_snippet", "body": "func main() {}", "competencyIds": []string{touched},
+	})
+	if rec.Code != 202 {
+		t.Fatalf("status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	var created struct {
+		Evidence evidenceDTO `json:"evidence"`
+	}
+	decodeInto(t, rec, &created)
+
+	listRec := ts.do(t, "GET", "/goals/"+goalID+"/evidence", nil)
+	page := decodeJSON[pageDTO[evidenceCardDTO]](t, listRec)
+	if len(page.Items) != 1 {
+		t.Fatalf("esperava 1 evidência, got %d", len(page.Items))
+	}
+	card := page.Items[0]
+	if len(card.CompetencyIDs) != 1 || card.CompetencyIDs[0] != touched {
+		t.Fatalf("competencyIds = %v, want [%s]", card.CompetencyIDs, touched)
+	}
+	if lvl, ok := card.LevelsAtTime[touched]; !ok || lvl != 3 {
+		t.Fatalf("levelsAtTime[%s] = %v (ok=%v), want 3", touched, lvl, ok)
+	}
+	if _, ok := card.LevelsAtTime[other]; ok {
+		t.Fatal("competência nunca medida não deveria aparecer em levelsAtTime (null nunca vira 0)")
+	}
+
+	filteredRec := ts.do(t, "GET", "/goals/"+goalID+"/evidence?competencyId="+touched, nil)
+	filteredPage := decodeJSON[pageDTO[evidenceCardDTO]](t, filteredRec)
+	if len(filteredPage.Items) != 1 {
+		t.Fatalf("filtro por competência tocada deveria trazer 1 item, got %d", len(filteredPage.Items))
+	}
+
+	emptyRec := ts.do(t, "GET", "/goals/"+goalID+"/evidence?competencyId="+other, nil)
+	emptyPage := decodeJSON[pageDTO[evidenceCardDTO]](t, emptyRec)
+	if len(emptyPage.Items) != 0 {
+		t.Fatalf("filtro por competência não tocada deveria vir vazio, got %d", len(emptyPage.Items))
+	}
+}
+
+func TestCreateEvidenceRejectsUnknownCompetencyHandler(t *testing.T) {
+	ts := newTestServer(t)
+	goalID, _ := activateReadyGoal(t, ts, "Meta ativa")
+
+	rec := ts.do(t, "POST", "/goals/"+goalID+"/evidence", map[string]any{
+		"kind": "code_snippet", "body": "func main() {}",
+		"competencyIds": []string{"00000000-0000-0000-0000-000000000000"},
+	})
+	if rec.Code < 300 {
+		t.Fatalf("competência inexistente deveria ser rejeitada, status = %d", rec.Code)
 	}
 }

@@ -22,15 +22,15 @@ WHERE id = $1;
 
 -- name: InsertLevelEvent :exec
 INSERT INTO competency_level_event
-    (id, competency_id, user_id, from_level, to_level, confidence, source, assessment_id, rationale, occurred_at)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10);
+    (id, competency_id, user_id, from_level, to_level, confidence, source, assessment_id, rationale, occurred_at, evidence_id)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11);
 
 -- name: ListLevelEvents :many
-SELECT id, competency_id, user_id, from_level, to_level, confidence, source, assessment_id, rationale, occurred_at
+SELECT id, competency_id, user_id, from_level, to_level, confidence, source, assessment_id, rationale, occurred_at, evidence_id
 FROM competency_level_event WHERE competency_id = $1 ORDER BY occurred_at;
 
 -- name: ListLevelEventsForGoal :many
-SELECT e.id, e.competency_id, e.user_id, e.from_level, e.to_level, e.confidence, e.source, e.assessment_id, e.rationale, e.occurred_at
+SELECT e.id, e.competency_id, e.user_id, e.from_level, e.to_level, e.confidence, e.source, e.assessment_id, e.rationale, e.occurred_at, e.evidence_id
 FROM competency_level_event e
 JOIN competency c ON c.id = e.competency_id
 WHERE c.goal_id = $1

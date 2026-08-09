@@ -118,6 +118,7 @@ func InsertLevelEvent(ctx context.Context, q Querier, ev *domain.LevelEvent) err
 		AssessmentID: ev.AssessmentID,
 		Rationale:    ev.Rationale,
 		OccurredAt:   ev.OccurredAt,
+		EvidenceID:   ev.EvidenceID,
 	})
 	if err != nil {
 		return fmt.Errorf("inserir level event: %w", err)
@@ -158,6 +159,7 @@ func toDomainLevelEvents(rows []sqlcgen.CompetencyLevelEvent) []domain.LevelEven
 			AssessmentID: r.AssessmentID,
 			Rationale:    r.Rationale,
 			OccurredAt:   r.OccurredAt,
+			EvidenceID:   r.EvidenceID,
 		}
 	}
 	return out

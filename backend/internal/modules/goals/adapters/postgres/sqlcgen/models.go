@@ -47,6 +47,7 @@ type CompetencyLevelEvent struct {
 	AssessmentID *string
 	Rationale    string
 	OccurredAt   time.Time
+	EvidenceID   *string
 }
 
 type Device struct {

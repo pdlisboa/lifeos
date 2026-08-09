@@ -60,6 +60,24 @@ func SumSessionMinutes(ctx context.Context, q Querier, goalID string) (int, erro
 	return int(total), nil
 }
 
+// SessionPace é o ritmo real dos últimos 30 dias (02-modelo-de-dados.md
+// §14.4). SpanDays só tem sentido quando ActiveDays > 0 — sem sessão
+// nenhuma na janela, span_days sai zerado pelo coalesce do SQL, e não pode
+// ser confundido com "sessão hoje" (ver comentário na query).
+type SessionPace struct {
+	TotalMinutes int
+	ActiveDays   int
+	SpanDays     int
+}
+
+func SessionPaceLast30d(ctx context.Context, q Querier, goalID string) (SessionPace, error) {
+	r, err := sqlcgen.New(q).SessionPaceLast30d(ctx, goalID)
+	if err != nil {
+		return SessionPace{}, fmt.Errorf("buscar ritmo de sessão: %w", err)
+	}
+	return SessionPace{TotalMinutes: int(r.TotalMin), ActiveDays: int(r.DiasAtivos), SpanDays: int(r.SpanDays)}, nil
+}
+
 // ActiveLocalDates junta local_on de sessões e evidências de UMA meta nos
 // últimos `days` dias — fonte de ComputeConsistency para GET
 // /goals/{id}/consistency (RN-11). 02-modelo-de-dados.md §14.3 mostra a

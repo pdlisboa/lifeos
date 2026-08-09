@@ -821,6 +821,12 @@ export interface paths {
                     "application/json": {
                         level: number;
                         rationale: string;
+                        /**
+                         * Format: uuid
+                         * @description evidência que sustentou a mudança, quando houver — é o que o
+                         *     gráfico temporal usa pra linkar cada ponto (05-ux.md §5.3).
+                         */
+                        evidenceId?: string | null;
                     };
                 };
             };
@@ -1412,6 +1418,11 @@ export interface paths {
                          * @description correção cria nova evidência; a antiga é imutável (RN-06)
                          */
                         supersedesId?: string;
+                        /**
+                         * @description "Competências tocadas" (05-ux.md §7) — marcadas por você na Fatia
+                         *     1/2, sem cerimônia. Alimenta o filtro e a comparação do museu (§7.4).
+                         */
+                        competencyIds?: string[];
                     };
                 };
             };
@@ -2198,6 +2209,11 @@ export interface components {
             rationale: string;
             /** Format: uuid */
             assessmentId?: string | null;
+            /**
+             * Format: uuid
+             * @description evidência que sustentou a mudança, quando houver (05-ux.md §5.3).
+             */
+            evidenceId?: string | null;
             /** Format: date-time */
             occurredAt: string;
         };

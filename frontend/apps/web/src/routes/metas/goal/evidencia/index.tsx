@@ -25,8 +25,15 @@ export function EvidenciaRoute() {
   const [body, setBody] = useState("");
   const [externalUrl, setExternalUrl] = useState("");
   const [linkToAction, setLinkToAction] = useState(true);
+  const [touchedCompetencyIds, setTouchedCompetencyIds] = useState<string[]>([]);
 
   const createEvidence = useCreateEvidence(goalId!);
+
+  const toggleCompetency = (competencyId: string) => {
+    setTouchedCompetencyIds((prev) =>
+      prev.includes(competencyId) ? prev.filter((id) => id !== competencyId) : [...prev, competencyId],
+    );
+  };
 
   const submit = async () => {
     try {
@@ -36,6 +43,7 @@ export function EvidenciaRoute() {
         body: kind !== "repo_link" ? body.trim() || undefined : undefined,
         externalUrl: kind === "repo_link" ? externalUrl.trim() || undefined : undefined,
         actionId: linkToAction ? action?.id : undefined,
+        competencyIds: touchedCompetencyIds.length > 0 ? touchedCompetencyIds : undefined,
       });
       navigate(`/metas/${goalId}`);
     } catch {
@@ -94,6 +102,24 @@ export function EvidenciaRoute() {
             onChange={(e) => setBody(e.target.value)}
             className="font-mono"
           />
+        </div>
+      )}
+
+      {goal && (goal.competencies ?? []).length > 0 && (
+        <div>
+          <Label>Competências tocadas</Label>
+          <div className="mt-1 flex flex-wrap gap-3">
+            {(goal.competencies ?? []).map((c) => (
+              <label key={c.id} className="flex items-center gap-1.5 text-sm text-fg-secondary">
+                <input
+                  type="checkbox"
+                  checked={touchedCompetencyIds.includes(c.id)}
+                  onChange={() => toggleCompetency(c.id)}
+                />
+                {c.label}
+              </label>
+            ))}
+          </div>
         </div>
       )}
 

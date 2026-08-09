@@ -16,6 +16,7 @@ type SetCompetencyLevelInput struct {
 	CompetencyID string
 	Level        int
 	Rationale    string
+	EvidenceID   *string
 }
 
 // SetCompetencyLevel é o caminho manual de RN-04 quando não há agente: a
@@ -28,12 +29,21 @@ func (s *Service) SetCompetencyLevel(ctx context.Context, in SetCompetencyLevelI
 		if err != nil {
 			return err
 		}
+		if in.EvidenceID != nil {
+			evidence, err := postgres.GetEvidence(ctx, tx, in.UserID, *in.EvidenceID)
+			if err != nil {
+				return err
+			}
+			if evidence.GoalID != c.GoalID {
+				return domain.NewRuleError("", "evidência não pertence à meta desta competência")
+			}
+		}
 		evID, err := idgen.NewUUIDv7()
 		if err != nil {
 			return err
 		}
 		now := time.Now()
-		ev, err := domain.NewLevelEvent(evID, c.ID, in.UserID, c.CurrentLevel, in.Level, domain.ConfidenceHigh, domain.SourceSelf, in.Rationale, now)
+		ev, err := domain.NewLevelEvent(evID, c.ID, in.UserID, c.CurrentLevel, in.Level, domain.ConfidenceHigh, domain.SourceSelf, in.EvidenceID, in.Rationale, now)
 		if err != nil {
 			return err
 		}

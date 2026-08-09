@@ -108,8 +108,8 @@ func (q *Queries) InsertCompetency(ctx context.Context, arg InsertCompetencyPara
 
 const insertLevelEvent = `-- name: InsertLevelEvent :exec
 INSERT INTO competency_level_event
-    (id, competency_id, user_id, from_level, to_level, confidence, source, assessment_id, rationale, occurred_at)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+    (id, competency_id, user_id, from_level, to_level, confidence, source, assessment_id, rationale, occurred_at, evidence_id)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
 `
 
 type InsertLevelEventParams struct {
@@ -123,6 +123,7 @@ type InsertLevelEventParams struct {
 	AssessmentID *string
 	Rationale    string
 	OccurredAt   time.Time
+	EvidenceID   *string
 }
 
 func (q *Queries) InsertLevelEvent(ctx context.Context, arg InsertLevelEventParams) error {
@@ -137,6 +138,7 @@ func (q *Queries) InsertLevelEvent(ctx context.Context, arg InsertLevelEventPara
 		arg.AssessmentID,
 		arg.Rationale,
 		arg.OccurredAt,
+		arg.EvidenceID,
 	)
 	return err
 }
@@ -196,7 +198,7 @@ func (q *Queries) ListCompetenciesByGoal(ctx context.Context, goalID string) ([]
 }
 
 const listLevelEvents = `-- name: ListLevelEvents :many
-SELECT id, competency_id, user_id, from_level, to_level, confidence, source, assessment_id, rationale, occurred_at
+SELECT id, competency_id, user_id, from_level, to_level, confidence, source, assessment_id, rationale, occurred_at, evidence_id
 FROM competency_level_event WHERE competency_id = $1 ORDER BY occurred_at
 `
 
@@ -220,6 +222,7 @@ func (q *Queries) ListLevelEvents(ctx context.Context, competencyID string) ([]C
 			&i.AssessmentID,
 			&i.Rationale,
 			&i.OccurredAt,
+			&i.EvidenceID,
 		); err != nil {
 			return nil, err
 		}
@@ -232,7 +235,7 @@ func (q *Queries) ListLevelEvents(ctx context.Context, competencyID string) ([]C
 }
 
 const listLevelEventsForGoal = `-- name: ListLevelEventsForGoal :many
-SELECT e.id, e.competency_id, e.user_id, e.from_level, e.to_level, e.confidence, e.source, e.assessment_id, e.rationale, e.occurred_at
+SELECT e.id, e.competency_id, e.user_id, e.from_level, e.to_level, e.confidence, e.source, e.assessment_id, e.rationale, e.occurred_at, e.evidence_id
 FROM competency_level_event e
 JOIN competency c ON c.id = e.competency_id
 WHERE c.goal_id = $1
@@ -259,6 +262,7 @@ func (q *Queries) ListLevelEventsForGoal(ctx context.Context, goalID string) ([]
 			&i.AssessmentID,
 			&i.Rationale,
 			&i.OccurredAt,
+			&i.EvidenceID,
 		); err != nil {
 			return nil, err
 		}

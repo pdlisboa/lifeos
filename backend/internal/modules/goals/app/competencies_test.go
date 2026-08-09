@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/phablo/lifeos/internal/modules/goals/adapters/postgres"
+	"github.com/phablo/lifeos/internal/modules/goals/domain"
 )
 
 // TestSetCompetencyLevelRN04ManualPath cobre o caminho manual de RN-04: sem
@@ -80,6 +81,79 @@ func TestSetCompetencyLevelNotFound(t *testing.T) {
 		CompetencyID: "00000000-0000-0000-0000-000000000000",
 		Level:        2,
 		Rationale:    "qualquer",
+	})
+	if !errors.Is(err, postgres.ErrNotFound) {
+		t.Fatalf("esperava ErrNotFound, got %v", err)
+	}
+}
+
+// TestSetCompetencyLevelWithEvidenceLinksTheEvent cobre §5.3 da UX: o
+// gráfico temporal precisa poder linkar o ponto à evidência que sustentou a
+// mudança.
+func TestSetCompetencyLevelWithEvidenceLinksTheEvent(t *testing.T) {
+	svc, userID := newFixture(t)
+	active := readyGoal(t, svc, userID, "Meta com evidência")
+	detail, err := svc.GetGoal(context.Background(), userID, active.Goal.ID)
+	if err != nil {
+		t.Fatalf("GetGoal falhou: %v", err)
+	}
+	compID := detail.Competencies[0].ID
+
+	body := "func main() {}"
+	ev, err := svc.CreateEvidence(context.Background(), CreateEvidenceInput{
+		UserID: userID, GoalID: active.Goal.ID, Kind: domain.EvidenceCodeSnippet, Body: &body,
+	})
+	if err != nil {
+		t.Fatalf("CreateEvidence falhou: %v", err)
+	}
+
+	_, err = svc.SetCompetencyLevel(context.Background(), SetCompetencyLevelInput{
+		UserID: userID, CompetencyID: compID, Level: 3, Rationale: "essa evidência mostra nível 3",
+		EvidenceID: &ev.ID,
+	})
+	if err != nil {
+		t.Fatalf("SetCompetencyLevel falhou: %v", err)
+	}
+
+	history, err := svc.CompetencyHistory(context.Background(), userID, compID)
+	if err != nil {
+		t.Fatalf("CompetencyHistory falhou: %v", err)
+	}
+	if len(history) != 1 || history[0].EvidenceID == nil || *history[0].EvidenceID != ev.ID {
+		t.Fatalf("histórico = %+v, esperava 1 evento linkado a %s", history, ev.ID)
+	}
+}
+
+func TestSetCompetencyLevelWithEvidenceFromOtherGoalFails(t *testing.T) {
+	svc, userID := newFixture(t)
+	a := readyGoal(t, svc, userID, "Meta A")
+	b := createDraftGoal(t, svc, userID, "Meta B")
+
+	body := "func main() {}"
+	ev, err := svc.CreateEvidence(context.Background(), CreateEvidenceInput{
+		UserID: userID, GoalID: a.Goal.ID, Kind: domain.EvidenceCodeSnippet, Body: &body,
+	})
+	if err != nil {
+		t.Fatalf("CreateEvidence falhou: %v", err)
+	}
+
+	_, err = svc.SetCompetencyLevel(context.Background(), SetCompetencyLevelInput{
+		UserID: userID, CompetencyID: b.Competencies[0].ID, Level: 3, Rationale: "evidência de outra meta",
+		EvidenceID: &ev.ID,
+	})
+	if err == nil {
+		t.Fatal("evidência de outra meta deveria ser rejeitada")
+	}
+}
+
+func TestSetCompetencyLevelWithUnknownEvidenceFails(t *testing.T) {
+	svc, userID := newFixture(t)
+	created := createDraftGoal(t, svc, userID, "Meta com competências")
+	unknown := "00000000-0000-0000-0000-000000000000"
+
+	_, err := svc.SetCompetencyLevel(context.Background(), SetCompetencyLevelInput{
+		UserID: userID, CompetencyID: created.Competencies[0].ID, Level: 3, Rationale: "evidência inexistente",
+		EvidenceID: &unknown,
 	})
 	if !errors.Is(err, postgres.ErrNotFound) {
 		t.Fatalf("esperava ErrNotFound, got %v", err)

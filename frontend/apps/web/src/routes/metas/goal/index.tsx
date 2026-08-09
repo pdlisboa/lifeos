@@ -7,9 +7,10 @@ import { cn } from "@/lib/cn";
 import { DoneStep } from "@/routes/metas/nova/done-step";
 import { TrackView } from "./track-view";
 import { DeltaPanelView } from "./delta-panel";
+import { MuseuView } from "./museu";
 import { SessionForm } from "./session-form";
 
-type Tab = "trilha" | "delta";
+type Tab = "trilha" | "delta" | "museu";
 
 export function MetaDetailRoute() {
   const { goalId } = useParams<{ goalId: string }>();
@@ -42,7 +43,8 @@ export function MetaDetailRoute() {
     );
   }
 
-  const tab: Tab = searchParams.get("aba") === "delta" ? "delta" : "trilha";
+  const abaParam = searchParams.get("aba");
+  const tab: Tab = abaParam === "delta" || abaParam === "museu" ? abaParam : "trilha";
 
   return (
     <div className="space-y-6">
@@ -75,6 +77,15 @@ export function MetaDetailRoute() {
           >
             Delta
           </button>
+          <button
+            className={cn(
+              "px-3 py-2 text-sm",
+              tab === "museu" ? "border-b-2 border-delta-positive text-fg-primary" : "text-fg-muted",
+            )}
+            onClick={() => setSearchParams({ aba: "museu" })}
+          >
+            Museu
+          </button>
         </div>
         <div className="flex gap-2 pb-2">
           <Button variant="ghost" onClick={() => setShowSessionForm((v) => !v)}>
@@ -88,7 +99,9 @@ export function MetaDetailRoute() {
 
       {showSessionForm && <SessionForm goalId={goal.id} onDone={() => setShowSessionForm(false)} />}
 
-      {tab === "trilha" ? <TrackView goalId={goal.id} /> : <DeltaPanelView goalId={goal.id} />}
+      {tab === "trilha" && <TrackView goalId={goal.id} />}
+      {tab === "delta" && <DeltaPanelView goalId={goal.id} />}
+      {tab === "museu" && <MuseuView goalId={goal.id} />}
     </div>
   );
 }

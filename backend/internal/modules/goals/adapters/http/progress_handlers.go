@@ -21,6 +21,19 @@ func (h *Handler) GetDelta(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, toDeltaPanelDTO(h.Service.Packs, d))
 }
 
+func (h *Handler) GetProjection(w http.ResponseWriter, r *http.Request) {
+	uid, ok := requireUser(w, r)
+	if !ok {
+		return
+	}
+	p, err := h.Service.GetProjection(r.Context(), uid, chi.URLParam(r, "goalId"))
+	if err != nil {
+		writeAppError(w, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, toProjectionDTO(p))
+}
+
 func (h *Handler) GetConsistency(w http.ResponseWriter, r *http.Request) {
 	uid, ok := requireUser(w, r)
 	if !ok {

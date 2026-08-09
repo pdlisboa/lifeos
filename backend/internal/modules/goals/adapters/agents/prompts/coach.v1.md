@@ -2,7 +2,11 @@
 id: coach
 version: v1
 tier: fast              # relato semanal roda em balanced
-output_schema: coach.schema.json
+# Dois schemas, escolhidos por RequestKind — ver 04-agentes.md §4.8.
+# Um único schema com oneOf quebra em strict mode de vários provedores.
+output_schema:
+  nudge: coach-nudge.schema.json
+  weekly_narrative: coach-narrative.schema.json
 ---
 
 # Sistema

@@ -4,14 +4,16 @@ import {
   deltaPhase,
   formatDelta,
   formatLevelRange,
+  formatProjectionFooter,
   levelState,
   sortCompetenciesForPanel,
 } from "@lifeos/core";
-import { useDelta } from "@/features/delta/use-delta";
+import { useDelta, useProjection } from "@/features/delta/use-delta";
 import { ProblemError } from "@/components/problem-error";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { SetLevelForm } from "./set-level-form";
+import { CompetencyHistoryChart } from "./competency-history-chart";
 
 const MAX_LEVEL = 5;
 
@@ -73,6 +75,7 @@ function NotMeasuredRow({
 export function DeltaPanelView({ goalId }: { goalId: string }) {
   const { data: panel, isPending, error } = useDelta(goalId);
   const [openLevelFormFor, setOpenLevelFormFor] = useState<string | null>(null);
+  const [expandedChartFor, setExpandedChartFor] = useState<string | null>(null);
 
   if (isPending) return <p className="text-sm text-fg-muted">Carregando…</p>;
   if (error) return <ProblemError error={error} />;
@@ -170,10 +173,22 @@ export function DeltaPanelView({ goalId }: { goalId: string }) {
       <div className="space-y-5">
         {sorted.map((c) => {
           const state = levelState(c.level, c.confidence);
+          const chartOpen = expandedChartFor === c.id;
           return (
             <div key={c.id} className="space-y-1.5">
               <div className="flex items-baseline justify-between gap-4">
-                <span className="text-sm text-fg-primary">{c.label}</span>
+                {c.level !== null ? (
+                  <button
+                    type="button"
+                    aria-expanded={chartOpen}
+                    onClick={() => setExpandedChartFor(chartOpen ? null : c.id)}
+                    className="text-sm text-fg-primary underline decoration-dotted underline-offset-2 hover:text-delta-positive"
+                  >
+                    {c.label}
+                  </button>
+                ) : (
+                  <span className="text-sm text-fg-primary">{c.label}</span>
+                )}
                 {c.level !== null && (
                   <span className="text-sm text-fg-secondary">{formatLevelRange(c.baselineLevel, c.level)}</span>
                 )}
@@ -195,10 +210,25 @@ export function DeltaPanelView({ goalId }: { goalId: string }) {
                     : formatDelta(c.baselineLevel, c.level, c.deltaWindowDays ?? null) ?? ""}
                 </p>
               )}
+
+              {chartOpen && <CompetencyHistoryChart goalId={goalId} competencyId={c.id} />}
             </div>
           );
         })}
       </div>
+
+      <ProjectionFooter goalId={goalId} />
     </div>
   );
+}
+
+function ProjectionFooter({ goalId }: { goalId: string }) {
+  const { data: projection, isPending } = useProjection(goalId);
+  if (isPending || !projection) return null;
+  const text = formatProjectionFooter({
+    available: projection.available,
+    reason: projection.reason ?? null,
+    minutesPerWeek: projection.minutesPerWeek ?? null,
+  });
+  return <div className="border-t border-border-subtle pt-4 text-sm text-fg-secondary">{text}</div>;
 }

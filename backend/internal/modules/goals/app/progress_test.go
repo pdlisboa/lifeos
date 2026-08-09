@@ -106,6 +106,58 @@ func TestGetConsistencyCountsDistinctActiveDays(t *testing.T) {
 	}
 }
 
+func TestGetProjectionUnavailableWithoutHistory(t *testing.T) {
+	svc, userID := newFixture(t)
+	active := readyGoal(t, svc, userID, "Meta sem ritmo ainda")
+
+	p, err := svc.GetProjection(context.Background(), userID, active.Goal.ID)
+	if err != nil {
+		t.Fatalf("GetProjection falhou: %v", err)
+	}
+	if p.Available {
+		t.Fatal("Available deveria ser false sem sessão nenhuma")
+	}
+	if p.Reason == nil || *p.Reason == "" {
+		t.Fatal("Reason deveria explicar a ausência de dado")
+	}
+}
+
+// TestGetProjectionAvailableWithThreeWeeksOfSessions cobre §7.2: com >= 3
+// semanas de histórico, o ritmo real aparece — nunca uma previsão inventada
+// de chegada ao marco.
+func TestGetProjectionAvailableWithThreeWeeksOfSessions(t *testing.T) {
+	svc, userID := newFixture(t)
+	active := readyGoal(t, svc, userID, "Meta com ritmo")
+
+	now := time.Now()
+	for _, daysAgo := range []int{22, 12, 2} {
+		if _, err := svc.CreateSession(context.Background(), CreateSessionInput{
+			UserID: userID, GoalID: active.Goal.ID, StartedAt: now.AddDate(0, 0, -daysAgo), DurationMin: 30,
+		}); err != nil {
+			t.Fatalf("CreateSession (%d dias atrás) falhou: %v", daysAgo, err)
+		}
+	}
+
+	p, err := svc.GetProjection(context.Background(), userID, active.Goal.ID)
+	if err != nil {
+		t.Fatalf("GetProjection falhou: %v", err)
+	}
+	if !p.Available {
+		t.Fatalf("Available deveria ser true com >= 3 semanas de histórico, reason=%v", p.Reason)
+	}
+	if p.MinutesPerWeek == nil || *p.MinutesPerWeek <= 0 {
+		t.Fatalf("MinutesPerWeek = %v, want > 0", p.MinutesPerWeek)
+	}
+}
+
+func TestGetProjectionGoalNotFound(t *testing.T) {
+	svc, userID := newFixture(t)
+	_, err := svc.GetProjection(context.Background(), userID, "00000000-0000-0000-0000-000000000000")
+	if !errors.Is(err, postgres.ErrNotFound) {
+		t.Fatalf("esperava ErrNotFound, got %v", err)
+	}
+}
+
 func TestGetConsistencyGoalNotFound(t *testing.T) {
 	svc, userID := newFixture(t)
 	_, err := svc.GetConsistency(context.Background(), userID, "00000000-0000-0000-0000-000000000000")

@@ -85,6 +85,19 @@ func (s *Service) GetDelta(ctx context.Context, userID, goalID string) (*DeltaRe
 	}, nil
 }
 
+// GetProjection é §7.2: ritmo real dos últimos 30 dias, nunca uma data de
+// chegada inventada — a query é a de 02-modelo-de-dados.md §14.4.
+func (s *Service) GetProjection(ctx context.Context, userID, goalID string) (domain.Projection, error) {
+	if _, err := postgres.GetGoal(ctx, s.Pool, userID, goalID); err != nil {
+		return domain.Projection{}, err
+	}
+	pace, err := postgres.SessionPaceLast30d(ctx, s.Pool, goalID)
+	if err != nil {
+		return domain.Projection{}, err
+	}
+	return domain.ComputeProjection(pace.TotalMinutes, pace.ActiveDays, pace.SpanDays), nil
+}
+
 func (s *Service) GetConsistency(ctx context.Context, userID, goalID string) (domain.ConsistencyWindow, error) {
 	if _, err := postgres.GetGoal(ctx, s.Pool, userID, goalID); err != nil {
 		return domain.ConsistencyWindow{}, err

@@ -55,6 +55,45 @@ func TestSumSessionMinutesNoSessions(t *testing.T) {
 	}
 }
 
+func TestSessionPaceLast30dNoSessions(t *testing.T) {
+	q, userID := setup(t)
+	g := newGoal(t, q, userID, "Meta")
+
+	pace, err := SessionPaceLast30d(context.Background(), q, g.ID)
+	if err != nil {
+		t.Fatalf("SessionPaceLast30d: %v", err)
+	}
+	if pace.TotalMinutes != 0 || pace.ActiveDays != 0 || pace.SpanDays != 0 {
+		t.Fatalf("sem sessão nenhuma, esperava tudo zerado, got %+v", pace)
+	}
+}
+
+// TestSessionPaceLast30dWithHistory cobre o ritmo real de §7.2/§14.4: soma
+// de minutos, dias distintos e o span até a sessão mais antiga da janela.
+func TestSessionPaceLast30dWithHistory(t *testing.T) {
+	q, userID := setup(t)
+	g := newGoal(t, q, userID, "Meta")
+
+	now := time.Now()
+	newSession(t, q, g, now.AddDate(0, 0, -25), 30)
+	newSession(t, q, g, now.AddDate(0, 0, -10), 20)
+	newSession(t, q, g, now, 15)
+
+	pace, err := SessionPaceLast30d(context.Background(), q, g.ID)
+	if err != nil {
+		t.Fatalf("SessionPaceLast30d: %v", err)
+	}
+	if pace.TotalMinutes != 65 {
+		t.Fatalf("TotalMinutes = %d, want 65", pace.TotalMinutes)
+	}
+	if pace.ActiveDays != 3 {
+		t.Fatalf("ActiveDays = %d, want 3", pace.ActiveDays)
+	}
+	if pace.SpanDays < 24 || pace.SpanDays > 26 {
+		t.Fatalf("SpanDays = %d, want ~25", pace.SpanDays)
+	}
+}
+
 // TestActiveLocalDatesJoinsSessionsAndEvidence alimenta RN-11: dias distintos
 // vindos de sessão e evidência contam juntos, sem duplicar o mesmo dia.
 func TestActiveLocalDatesJoinsSessionsAndEvidence(t *testing.T) {

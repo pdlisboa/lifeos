@@ -101,11 +101,15 @@ type LevelEvent struct {
 	Confidence   Confidence
 	Source       LevelSource
 	AssessmentID *string
+	EvidenceID   *string
 	Rationale    string
 	OccurredAt   time.Time
 }
 
-func NewLevelEvent(id, competencyID, userID string, fromLevel *int, toLevel int, confidence Confidence, source LevelSource, rationale string, now time.Time) (*LevelEvent, error) {
+// evidenceID é a evidência que sustentou a mudança, quando houver — nil
+// quando o nível nasce sem uma evidência específica (ex.: sondagem inicial).
+// É o que o gráfico temporal usa pra linkar cada ponto (05-ux.md §5.3).
+func NewLevelEvent(id, competencyID, userID string, fromLevel *int, toLevel int, confidence Confidence, source LevelSource, evidenceID *string, rationale string, now time.Time) (*LevelEvent, error) {
 	if toLevel < MinLevel || toLevel > MaxLevel {
 		return nil, newRuleError("", fmt.Sprintf("nível deve estar entre %d e %d", MinLevel, MaxLevel))
 	}
@@ -129,9 +133,27 @@ func NewLevelEvent(id, competencyID, userID string, fromLevel *int, toLevel int,
 		ToLevel:      toLevel,
 		Confidence:   confidence,
 		Source:       source,
+		EvidenceID:   evidenceID,
 		Rationale:    rationale,
 		OccurredAt:   now,
 	}, nil
+}
+
+// LevelAtTime reconstrói o nível vigente num instante a partir do histórico
+// de eventos de uma competência (`events` precisa vir ordenado ASC por
+// OccurredAt — mesma ordem de ListLevelEvents/ListLevelEventsForGoal).
+// nil quando não havia nenhum evento até `at`: null nunca vira 0
+// (02-modelo-de-dados.md §14.2, "reconstrução point-in-time").
+func LevelAtTime(events []LevelEvent, at time.Time) *int {
+	var level *int
+	for _, e := range events {
+		if e.OccurredAt.After(at) {
+			break
+		}
+		toLevel := e.ToLevel
+		level = &toLevel
+	}
+	return level
 }
 
 // ApplyLevelEvent atualiza o cache da competência a partir de um evento já

@@ -5,14 +5,22 @@ import { http, HttpResponse } from "msw";
 import { server } from "@/test/server";
 import { API_BASE } from "@/test/api-base";
 import { renderRoute } from "@/test/render";
-import { makeAction, makeEvidence, makeGoal } from "@/test/fixtures";
+import { makeAction, makeCompetency, makeEvidence, makeGoal } from "@/test/fixtures";
 import { EvidenciaRoute } from "./index";
 
 const GOAL_ID = "goal-evidencia";
 
-function setupGoalAndAction(overrides: { hasAction?: boolean } = {}) {
+function setupGoalAndAction(overrides: { hasAction?: boolean; competencies?: ReturnType<typeof makeCompetency>[] } = {}) {
   server.use(
-    http.get(`${API_BASE}/goals/${GOAL_ID}`, () => HttpResponse.json(makeGoal({ id: GOAL_ID, title: "Go backend" }))),
+    http.get(`${API_BASE}/goals/${GOAL_ID}`, () =>
+      HttpResponse.json(
+        makeGoal({
+          id: GOAL_ID,
+          title: "Go backend",
+          ...(overrides.competencies ? { competencies: overrides.competencies } : {}),
+        }),
+      ),
+    ),
     http.get(`${API_BASE}/goals/${GOAL_ID}/action`, () =>
       overrides.hasAction === false
         ? HttpResponse.json({ title: "Não encontrado", status: 404 }, { status: 404 })
@@ -74,8 +82,8 @@ describe("EvidenciaRoute", () => {
     expect(checkbox).toBeChecked();
   });
 
-  it("não mostra o checkbox quando não há ação pendente", async () => {
-    setupGoalAndAction({ hasAction: false });
+  it("não mostra o checkbox de vínculo com ação quando não há ação pendente", async () => {
+    setupGoalAndAction({ hasAction: false, competencies: [] });
     renderEvidencia();
     await screen.findByText("Nova evidência · Go backend");
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
@@ -116,7 +124,7 @@ describe("EvidenciaRoute", () => {
 
     await screen.findByText("Nova evidência · Go backend");
     await user.type(screen.getByLabelText("Código"), "func main, sem chaves nesse texto de teste");
-    await user.click(screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("checkbox", { name: /Escreva um worker pool/ }));
     await user.click(screen.getByRole("button", { name: "Registrar" }));
 
     await waitFor(() => expect(requestBody).toBeDefined());
@@ -143,6 +151,68 @@ describe("EvidenciaRoute", () => {
     await waitFor(() => expect(requestBody).toBeDefined());
     expect(requestBody).toMatchObject({ kind: "repo_link", externalUrl: "https://github.com/foo/bar" });
     expect(requestBody.body).toBeUndefined();
+  });
+
+  it("mostra as competências da meta como checkboxes desmarcados por padrão", async () => {
+    setupGoalAndAction({
+      competencies: [
+        makeCompetency({ id: "c1", label: "Concorrência" }),
+        makeCompetency({ id: "c2", label: "Tratamento de erros" }),
+      ],
+    });
+    renderEvidencia();
+
+    expect(await screen.findByText("Competências tocadas")).toBeInTheDocument();
+    const c1 = screen.getByRole("checkbox", { name: "Concorrência" });
+    const c2 = screen.getByRole("checkbox", { name: "Tratamento de erros" });
+    expect(c1).not.toBeChecked();
+    expect(c2).not.toBeChecked();
+  });
+
+  it("envia competencyIds só das competências marcadas", async () => {
+    setupGoalAndAction({
+      competencies: [
+        makeCompetency({ id: "c1", label: "Concorrência" }),
+        makeCompetency({ id: "c2", label: "Tratamento de erros" }),
+      ],
+    });
+    let requestBody: any;
+    server.use(
+      http.post(`${API_BASE}/goals/${GOAL_ID}/evidence`, async ({ request }) => {
+        requestBody = await request.json();
+        return HttpResponse.json({ evidence: makeEvidence(), job: null }, { status: 202 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderEvidencia();
+
+    await screen.findByText("Competências tocadas");
+    await user.type(screen.getByLabelText("Código"), "func fetchAll(ctx context.Context) error");
+    await user.click(screen.getByRole("checkbox", { name: "Concorrência" }));
+    await user.click(screen.getByRole("button", { name: "Registrar" }));
+
+    await waitFor(() => expect(requestBody).toBeDefined());
+    expect(requestBody.competencyIds).toEqual(["c1"]);
+  });
+
+  it("omite competencyIds quando nenhuma competência é marcada", async () => {
+    setupGoalAndAction({ competencies: [makeCompetency({ id: "c1", label: "Concorrência" })] });
+    let requestBody: any;
+    server.use(
+      http.post(`${API_BASE}/goals/${GOAL_ID}/evidence`, async ({ request }) => {
+        requestBody = await request.json();
+        return HttpResponse.json({ evidence: makeEvidence(), job: null }, { status: 202 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderEvidencia();
+
+    await screen.findByText("Competências tocadas");
+    await user.type(screen.getByLabelText("Código"), "func fetchAll(ctx context.Context) error");
+    await user.click(screen.getByRole("button", { name: "Registrar" }));
+
+    await waitFor(() => expect(requestBody).toBeDefined());
+    expect(requestBody.competencyIds).toBeUndefined();
   });
 
   it("mostra erro e não navega quando a API rejeita a evidência vazia", async () => {
