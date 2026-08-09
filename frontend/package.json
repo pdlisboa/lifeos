@@ -1,0 +1,15 @@
+{
+  "name": "lifeos-frontend",
+  "private": true,
+  "version": "0.0.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @lifeos/web dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "generate:api": "pnpm --filter @lifeos/api-client generate"
+  }
+}

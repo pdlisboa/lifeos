@@ -238,6 +238,36 @@ func toConsistencyDTO(w domain.ConsistencyWindow) consistencyDTO {
 	}
 }
 
+type todayGoalDTO struct {
+	Goal      goalSummaryDTO `json:"goal"`
+	Action    nextActionDTO  `json:"action"`
+	RecentWin *string        `json:"recentWin"`
+}
+
+type todayDTO struct {
+	Goals            []todayGoalDTO `json:"goals"`
+	Nudge            any            `json:"nudge"`
+	Consistency      consistencyDTO `json:"consistency"`
+	PendingProposals int            `json:"pendingProposals"`
+}
+
+func toTodayDTO(r *app.TodayResult) todayDTO {
+	items := make([]todayGoalDTO, len(r.Goals))
+	for i, g := range r.Goals {
+		items[i] = todayGoalDTO{
+			Goal:      toGoalSummaryDTO(g.Goal),
+			Action:    toNextActionDTO(g.Action),
+			RecentWin: g.RecentWin,
+		}
+	}
+	return todayDTO{
+		Goals:            items,
+		Nudge:            nil, // sem agente na Fatia 1 — nudge chega na Fatia 6 (04-agentes.md §4.7)
+		Consistency:      toConsistencyDTO(r.Consistency),
+		PendingProposals: 0,
+	}
+}
+
 type probeTurnDTO struct {
 	ID            string  `json:"id"`
 	Ordinal       int     `json:"ordinal"`

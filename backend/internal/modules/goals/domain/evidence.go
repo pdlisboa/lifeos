@@ -67,7 +67,7 @@ func NewEvidence(id, goalID, userID string, actionID *string, kind EvidenceKind,
 	blobKey = trimToNil(blobKey)
 	externalURL = trimToNil(externalURL)
 	if body == nil && blobKey == nil && externalURL == nil {
-		return nil, newRuleError("", "evidência precisa de body, blobKey ou externalUrl")
+		return nil, newRuleError("", "essa evidência está vazia — cole um código, um texto ou um link antes de registrar")
 	}
 	return &Evidence{
 		ID:           id,

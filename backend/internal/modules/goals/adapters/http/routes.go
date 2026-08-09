@@ -9,6 +9,8 @@ import (
 // sessions, evidence, delta, consistency. Assume que `r` já está atrás do
 // middleware de autenticação — quem monta isso é cmd/api (via module.go).
 func RegisterRoutes(r chi.Router, h *Handler) {
+	r.Get("/today", h.GetToday)
+
 	r.Route("/goals", func(r chi.Router) {
 		r.Get("/", h.ListGoals)
 		r.Post("/", h.CreateGoal)

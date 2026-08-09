@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/phablo/lifeos/internal/modules/goals"
@@ -60,6 +61,19 @@ func main() {
 
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID, middleware.RealIP, middleware.Recoverer, obs.RequestLogger(logger))
+
+	// CORS só entra em cena quando há origem configurada (dev com Vite em
+	// outra porta, ou front web em domínio separado). AllowCredentials é
+	// obrigatório pro cookie de sessão atravessar a origem cruzada.
+	if len(cfg.CorsOrigins) > 0 {
+		r.Use(cors.Handler(cors.Options{
+			AllowedOrigins:   cfg.CorsOrigins,
+			AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+			AllowedHeaders:   []string{"Content-Type", "Authorization"},
+			AllowCredentials: true,
+			MaxAge:           300,
+		}))
+	}
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/healthz", healthzHandler(pool))
