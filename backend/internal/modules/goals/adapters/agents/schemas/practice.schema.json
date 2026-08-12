@@ -5,7 +5,8 @@
   "type": "object",
   "additionalProperties": false,
   "required": ["title", "detail", "practiceFormat", "estimatedMin",
-               "minimalVariant", "competencyKey", "expectedEvidence"],
+               "minimalVariant", "competencyKey", "expectedEvidence",
+               "milestoneId", "rationale"],
   "properties": {
     "title": {
       "type": "string",

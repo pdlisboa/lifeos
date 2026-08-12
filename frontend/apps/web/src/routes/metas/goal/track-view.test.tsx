@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { server } from "@/test/server";
 import { API_BASE } from "@/test/api-base";
@@ -58,5 +59,24 @@ describe("TrackView", () => {
 
     expect(screen.getByText("Servidor HTTP")).toBeInTheDocument();
     expect(screen.getByText("concluído")).toBeInTheDocument();
+  });
+
+  it("pede revisão da trilha ao planejador e mostra confirmação", async () => {
+    server.use(http.get(`${API_BASE}/goals/${GOAL_ID}/track`, () => HttpResponse.json(makeTrack({ milestones: [] }))));
+    let posted = false;
+    server.use(
+      http.post(`${API_BASE}/goals/${GOAL_ID}/track`, () => {
+        posted = true;
+        return HttpResponse.json({ jobId: "job-1", state: "queued" }, { status: 202 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderRoute(<TrackView goalId={GOAL_ID} />);
+
+    await screen.findByText("Esta meta ainda não tem trilha definida.");
+    await user.click(screen.getByRole("button", { name: "Pedir revisão da trilha ao planejador" }));
+
+    expect(await screen.findByText(/Pedido enviado ao planejador/)).toBeInTheDocument();
+    expect(posted).toBe(true);
   });
 });

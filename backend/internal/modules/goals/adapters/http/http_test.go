@@ -43,7 +43,7 @@ func newTestServer(t *testing.T) *testServer {
 	if err != nil {
 		t.Fatalf("packs.Load: %v", err)
 	}
-	svc := app.NewService(pgtest.Pool(), reg)
+	svc := app.NewService(pgtest.Pool(), reg, nil, nil)
 	users := auth.NewUserStore(pgtest.Pool())
 	sessions := auth.NewSessionStore(pgtest.Pool())
 

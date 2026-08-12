@@ -1,7 +1,12 @@
-# Fatia 0 — escopo mínimo: api + postgres.
-# Caddy (TLS público), worker (fila de jobs) e backup entram em fatias
-# seguintes, quando houver o que servir/consumir/proteger de fato
-# (01-arquitetura.md §10.1, roadmap §14).
+# api + worker + postgres. Caddy (TLS público) e backup entram quando
+# houver o que servir/proteger de fato (01-arquitetura.md §10.1).
+#
+# api e worker saem da mesma imagem (backend/Dockerfile), só o entrypoint
+# muda — uma build, dois processos (01-arquitetura.md §7). worker é quem
+# chama o Agent Gateway (A1/A2); api só enfileira jobs, nunca chama LLM
+# direto (§5.1: chamada de LLM não pode estar no caminho crítico de
+# request HTTP). Sem LLM_API_KEY definida, o worker sobe do mesmo jeito —
+# A1/A2 ficam em modo fallback determinístico (04-agentes.md §5).
 
 services:
   postgres:
@@ -33,6 +38,32 @@ services:
       ENV: ${ENV:-production}
     ports:
       - "${API_PORT:-8080}:8080"
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    entrypoint: /app/worker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-lifeos}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-lifeos}?sslmode=disable
+      ENV: ${ENV:-production}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://openrouter.ai/api/v1}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL_FAST: ${LLM_MODEL_FAST:-}
+      LLM_MODEL_BALANCED: ${LLM_MODEL_BALANCED:-}
+      LLM_MODEL_STRONG: ${LLM_MODEL_STRONG:-}
+      LLM_MONTHLY_BUDGET_USD: ${LLM_MONTHLY_BUDGET_USD:-10}
+      LLM_PRICE_FAST_IN_PER_M: ${LLM_PRICE_FAST_IN_PER_M:-0}
+      LLM_PRICE_FAST_OUT_PER_M: ${LLM_PRICE_FAST_OUT_PER_M:-0}
+      LLM_PRICE_BALANCED_IN_PER_M: ${LLM_PRICE_BALANCED_IN_PER_M:-0}
+      LLM_PRICE_BALANCED_OUT_PER_M: ${LLM_PRICE_BALANCED_OUT_PER_M:-0}
+      LLM_PRICE_STRONG_IN_PER_M: ${LLM_PRICE_STRONG_IN_PER_M:-0}
+      LLM_PRICE_STRONG_OUT_PER_M: ${LLM_PRICE_STRONG_OUT_PER_M:-0}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-30}
 
 volumes:
   pgdata:

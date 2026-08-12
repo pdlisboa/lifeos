@@ -17,6 +17,7 @@ type EvidenceCard = components["schemas"]["EvidenceCard"];
 type Session = components["schemas"]["Session"];
 type LevelEvent = components["schemas"]["LevelEvent"];
 type Projection = components["schemas"]["Projection"];
+type Proposal = components["schemas"]["Proposal"];
 
 let seq = 0;
 /** IDs previsíveis e distintos entre fixtures, sem precisar de uuid de verdade nos testes. */
@@ -242,6 +243,31 @@ export function makeProjection(overrides: Partial<Projection> = {}): Projection 
     weeksToNextMin: null,
     weeksToNextMax: null,
     ifYouDouble: null,
+    ...overrides,
+  };
+}
+
+export function makeProposal(overrides: Partial<Proposal> = {}): Proposal {
+  return {
+    id: nextId("proposal"),
+    goalId: nextId("goal"),
+    kind: "track",
+    payload: {
+      milestones: [
+        {
+          ordinal: 1,
+          title: "Escreve um worker pool básico com channels",
+          completionCriteria: "worker pool sem vazar goroutine, com WaitGroup",
+          competencyKeys: ["concurrency"],
+          carriedOver: false,
+          sourceLibraryTitle: null,
+        },
+      ],
+    },
+    rationale: "Você já demonstrou o básico de goroutines, então pulei o marco introdutório.",
+    status: "pending",
+    expiresAt: null,
+    createdAt: "2026-08-09T12:00:00Z",
     ...overrides,
   };
 }

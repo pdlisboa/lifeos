@@ -75,6 +75,25 @@ func TestAnswerProbeWalksStaticSeeds(t *testing.T) {
 	if step4.Probe.Status != domain.ProbeCompleted {
 		t.Fatalf("status final = %s, want completed", step4.Probe.Status)
 	}
+
+	assertPlanTrackJobEnqueued(t, svc, created.Goal.ID)
+}
+
+// assertPlanTrackJobEnqueued cobre 04-agentes.md §4.1: A1 dispara no fim da
+// sondagem (completada ou pulada) — aqui só confirmamos que o job foi
+// enfileirado; HandlePlanTrack em si é testado em agent_jobs_test.go.
+func assertPlanTrackJobEnqueued(t *testing.T, svc *Service, goalID string) {
+	t.Helper()
+	var count int
+	err := svc.Pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM job WHERE kind = 'plan_track' AND status = 'queued'`,
+	).Scan(&count)
+	if err != nil {
+		t.Fatalf("consultar job: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("esperava 1 job plan_track enfileirado para a meta %s, teve %d", goalID, count)
+	}
 }
 
 func TestGetProbeGoalNotFound(t *testing.T) {
@@ -151,4 +170,6 @@ func TestSkipProbe(t *testing.T) {
 	if fetched.Status != domain.ProbeSkipped {
 		t.Fatalf("status persistido = %s, want skipped", fetched.Status)
 	}
+
+	assertPlanTrackJobEnqueued(t, svc, created.Goal.ID)
 }

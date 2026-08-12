@@ -129,6 +129,45 @@ func (q *Queries) InsertNextAction(ctx context.Context, arg InsertNextActionPara
 	return err
 }
 
+const listRecentActionsByGoal = `-- name: ListRecentActionsByGoal :many
+SELECT title, status, skip_reason FROM next_action
+WHERE goal_id = $1 AND status != 'pending'
+ORDER BY resolved_at DESC LIMIT $2
+`
+
+type ListRecentActionsByGoalParams struct {
+	GoalID string
+	Limit  int32
+}
+
+type ListRecentActionsByGoalRow struct {
+	Title      string
+	Status     string
+	SkipReason *string
+}
+
+// Alimenta RecentActions/RecentTitles do prompt de A2 — só ações já
+// resolvidas (pending nunca entra aqui, é sempre a que está sendo gerada).
+func (q *Queries) ListRecentActionsByGoal(ctx context.Context, arg ListRecentActionsByGoalParams) ([]ListRecentActionsByGoalRow, error) {
+	rows, err := q.db.Query(ctx, listRecentActionsByGoal, arg.GoalID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRecentActionsByGoalRow
+	for rows.Next() {
+		var i ListRecentActionsByGoalRow
+		if err := rows.Scan(&i.Title, &i.Status, &i.SkipReason); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const resolveNextAction = `-- name: ResolveNextAction :exec
 UPDATE next_action SET status = $2, skip_reason = $3, resolved_at = $4
 WHERE id = $1
@@ -149,4 +188,47 @@ func (q *Queries) ResolveNextAction(ctx context.Context, arg ResolveNextActionPa
 		arg.ResolvedAt,
 	)
 	return err
+}
+
+const updatePendingActionContent = `-- name: UpdatePendingActionContent :execrows
+UPDATE next_action SET
+    title = $2, detail = $3, practice_format = $4, estimated_min = $5,
+    minimal_variant = $6, milestone_id = $7, competency_id = $8, generated_by = $9
+WHERE id = $1 AND status = 'pending'
+`
+
+type UpdatePendingActionContentParams struct {
+	ID             string
+	Title          string
+	Detail         *string
+	PracticeFormat *string
+	EstimatedMin   int16
+	MinimalVariant *string
+	MilestoneID    *string
+	CompetencyID   *string
+	GeneratedBy    string
+}
+
+// "Upgrade no lugar" do fallback determinístico pro resultado do A2
+// (04-agentes.md §5): mesmo ID, mesmo created_at, só o conteúdo muda.
+// :execrows deixa o chamador saber se a ação ainda estava pending — se não
+// estava (já foi concluída/pulada enquanto o job rodava), 0 linhas afetadas
+// e o resultado do agente é descartado, sem sobrescrever o que a pessoa já
+// fez (03-api.md, RN-03).
+func (q *Queries) UpdatePendingActionContent(ctx context.Context, arg UpdatePendingActionContentParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updatePendingActionContent,
+		arg.ID,
+		arg.Title,
+		arg.Detail,
+		arg.PracticeFormat,
+		arg.EstimatedMin,
+		arg.MinimalVariant,
+		arg.MilestoneID,
+		arg.CompetencyID,
+		arg.GeneratedBy,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

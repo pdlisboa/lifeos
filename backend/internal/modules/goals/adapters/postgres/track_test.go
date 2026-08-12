@@ -88,6 +88,24 @@ func TestGetCurrentTrackNotFound(t *testing.T) {
 	}
 }
 
+func TestSupersedeTrack(t *testing.T) {
+	q, userID := setup(t)
+	g := newGoal(t, q, userID, "Meta")
+
+	track := &domain.Track{ID: mustID(t), GoalID: g.ID, UserID: userID, Version: 1, GeneratedBy: "user"}
+	if err := InsertTrack(context.Background(), q, track); err != nil {
+		t.Fatalf("InsertTrack: %v", err)
+	}
+
+	if err := SupersedeTrack(context.Background(), q, track.ID); err != nil {
+		t.Fatalf("SupersedeTrack: %v", err)
+	}
+
+	if _, err := GetCurrentTrack(context.Background(), q, g.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("erro = %v, want ErrNotFound (trilha superseded não deve mais ser a vigente)", err)
+	}
+}
+
 func TestGetMilestoneNotFound(t *testing.T) {
 	q, userID := setup(t)
 	if _, err := GetMilestone(context.Background(), q, userID, mustID(t)); !errors.Is(err, ErrNotFound) {

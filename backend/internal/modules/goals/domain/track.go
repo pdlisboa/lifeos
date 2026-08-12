@@ -73,10 +73,6 @@ func BuildFallbackTrack(specs []MilestoneSpec, competencyIDByKey map[string]stri
 
 	milestones := make([]Milestone, 0, len(ordered))
 	for i, spec := range ordered {
-		status := MilestoneLocked
-		if i == 0 {
-			status = MilestoneCurrent
-		}
 		var ids []string
 		for _, key := range spec.CompetencyKeys {
 			if id, ok := competencyIDByKey[key]; ok {
@@ -87,11 +83,34 @@ func BuildFallbackTrack(specs []MilestoneSpec, competencyIDByKey map[string]stri
 			Ordinal:            i + 1,
 			Title:              spec.Title,
 			CompletionCriteria: spec.CompletionCriteria,
-			Status:             status,
+			Status:             MilestoneLocked,
 			CompetencyIDs:      ids,
 		})
 	}
+	ApplyTrackStatuses(milestones)
 	return milestones
+}
+
+// ApplyTrackStatuses marca o primeiro marco ainda não concluído/pulado como
+// 'current' e todo o resto como 'locked', sem tocar em marcos já
+// 'completed'/'skipped'. Usado tanto pelo fallback determinístico quanto
+// pela trilha aplicada ao aceitar uma proposta do A1 — marcos concluídos são
+// intocáveis numa revisão (04-agentes.md §4.1).
+func ApplyTrackStatuses(milestones []Milestone) {
+	foundCurrent := false
+	for i := range milestones {
+		switch milestones[i].Status {
+		case MilestoneCompleted, MilestoneSkipped:
+			continue
+		default:
+			if !foundCurrent {
+				milestones[i].Status = MilestoneCurrent
+				foundCurrent = true
+			} else {
+				milestones[i].Status = MilestoneLocked
+			}
+		}
+	}
 }
 
 // FirstOpen devolve o primeiro marco ainda não concluído/pulado — é o que o

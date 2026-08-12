@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useGoal } from "@/features/goal/use-goals";
+import { useTrackProposals } from "@/features/proposal/use-proposal";
 import { ProblemError } from "@/components/problem-error";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -9,8 +10,9 @@ import { TrackView } from "./track-view";
 import { DeltaPanelView } from "./delta-panel";
 import { MuseuView } from "./museu";
 import { SessionForm } from "./session-form";
+import { TrackProposalView } from "./track-proposal";
 
-type Tab = "trilha" | "delta" | "museu";
+type Tab = "trilha" | "delta" | "museu" | "proposta";
 
 export function MetaDetailRoute() {
   const { goalId } = useParams<{ goalId: string }>();
@@ -18,6 +20,10 @@ export function MetaDetailRoute() {
   const [showSessionForm, setShowSessionForm] = useState(false);
 
   const { data: goal, isPending, error } = useGoal(goalId!);
+  // Hooks não podem ser condicionais — chamado aqui, antes de qualquer
+  // return antecipado, mesmo que só use goal.id depois de saber que a meta
+  // não está em rascunho (regra de Hooks do React).
+  const { data: trackProposals } = useTrackProposals(goalId!);
 
   if (isPending) return <p className="text-sm text-fg-muted">Carregando…</p>;
   if (error) return <ProblemError error={error} />;
@@ -43,8 +49,13 @@ export function MetaDetailRoute() {
     );
   }
 
+  const hasPendingProposal = (trackProposals?.length ?? 0) > 0;
+
   const abaParam = searchParams.get("aba");
-  const tab: Tab = abaParam === "delta" || abaParam === "museu" ? abaParam : "trilha";
+  const tab: Tab =
+    abaParam === "delta" || abaParam === "museu" || (abaParam === "proposta" && hasPendingProposal)
+      ? abaParam
+      : "trilha";
 
   return (
     <div className="space-y-6">
@@ -86,6 +97,17 @@ export function MetaDetailRoute() {
           >
             Museu
           </button>
+          {hasPendingProposal && (
+            <button
+              className={cn(
+                "px-3 py-2 text-sm",
+                tab === "proposta" ? "border-b-2 border-delta-positive text-fg-primary" : "text-fg-muted",
+              )}
+              onClick={() => setSearchParams({ aba: "proposta" })}
+            >
+              Proposta
+            </button>
+          )}
         </div>
         <div className="flex gap-2 pb-2">
           <Button variant="ghost" onClick={() => setShowSessionForm((v) => !v)}>
@@ -102,6 +124,7 @@ export function MetaDetailRoute() {
       {tab === "trilha" && <TrackView goalId={goal.id} />}
       {tab === "delta" && <DeltaPanelView goalId={goal.id} />}
       {tab === "museu" && <MuseuView goalId={goal.id} />}
+      {tab === "proposta" && <TrackProposalView goalId={goal.id} />}
     </div>
   );
 }

@@ -10,6 +10,32 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AgentBudget struct {
+	UserID   string
+	PeriodOn time.Time
+	LimitUsd float64
+	SpentUsd float64
+}
+
+type AgentCall struct {
+	ID            string
+	UserID        string
+	Task          string
+	Tier          string
+	Model         string
+	PromptVersion string
+	InputTokens   *int32
+	OutputTokens  *int32
+	CostUsd       *float64
+	LatencyMs     *int32
+	Status        string
+	Error         *string
+	CacheHit      bool
+	InputHash     *string
+	Output        []byte
+	CreatedAt     time.Time
+}
+
 type AppUser struct {
 	ID           string
 	Email        string
@@ -99,6 +125,21 @@ type Goal struct {
 	UpdatedAt        time.Time
 }
 
+type Job struct {
+	ID          int64
+	Kind        string
+	Payload     []byte
+	UniqueKey   *string
+	RunAt       time.Time
+	Attempts    int16
+	MaxAttempts int16
+	LockedAt    *time.Time
+	LockedBy    *string
+	Status      string
+	LastError   *string
+	CreatedAt   time.Time
+}
+
 type Milestone struct {
 	ID                 string
 	TrackID            string
@@ -136,6 +177,16 @@ type NextAction struct {
 	CreatedAt      time.Time
 }
 
+type Outbox struct {
+	ID          int64
+	Aggregate   string
+	AggregateID string
+	EventType   string
+	Payload     []byte
+	OccurredAt  time.Time
+	PublishedAt *time.Time
+}
+
 type Probe struct {
 	ID         string
 	GoalID     string
@@ -155,6 +206,27 @@ type ProbeTurn struct {
 	Answer        *string
 	InferredLevel *int16
 	AnsweredAt    *time.Time
+}
+
+type ProcessedEvent struct {
+	Consumer    string
+	EventID     int64
+	ProcessedAt time.Time
+}
+
+type Proposal struct {
+	ID           string
+	UserID       string
+	GoalID       *string
+	Kind         string
+	Payload      []byte
+	Rationale    string
+	AgentCallID  *string
+	Status       string
+	ResolvedAt   *time.Time
+	RejectReason *string
+	ExpiresAt    *time.Time
+	CreatedAt    time.Time
 }
 
 type Session struct {

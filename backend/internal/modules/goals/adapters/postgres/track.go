@@ -143,6 +143,16 @@ func listCompetencyIDsByMilestones(ctx context.Context, q Querier, milestoneIDs 
 	return out, nil
 }
 
+// SupersedeTrack fecha a trilha vigente ao aplicar uma nova versão (aceite
+// de proposta do A1) — a mesma trilha nunca some, só deixa de ser a atual
+// (GetCurrentTrack filtra por superseded_at IS NULL).
+func SupersedeTrack(ctx context.Context, q Querier, trackID string) error {
+	if err := sqlcgen.New(q).SupersedeTrack(ctx, trackID); err != nil {
+		return fmt.Errorf("superseder track: %w", err)
+	}
+	return nil
+}
+
 func GetMilestone(ctx context.Context, q Querier, userID, milestoneID string) (*domain.Milestone, error) {
 	r, err := sqlcgen.New(q).GetMilestone(ctx, sqlcgen.GetMilestoneParams{ID: milestoneID, UserID: userID})
 	if err != nil {

@@ -4,6 +4,7 @@
 package http
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/phablo/lifeos/internal/modules/goals/app"
@@ -484,6 +485,40 @@ func toEvidenceCardDTO(c app.EvidenceCard) evidenceCardDTO {
 		AssessmentSummary: nil,
 		LevelsAtTime:      c.LevelsAtTime,
 	}
+}
+
+type proposalDTO struct {
+	ID        string  `json:"id"`
+	GoalID    *string `json:"goalId"`
+	Kind      string  `json:"kind"`
+	Payload   any     `json:"payload"`
+	Rationale string  `json:"rationale"`
+	Status    string  `json:"status"`
+	ExpiresAt *string `json:"expiresAt"`
+	CreatedAt string  `json:"createdAt"`
+}
+
+func toProposalDTO(p domain.Proposal) proposalDTO {
+	var payload any
+	// payload sempre é JSON válido — quem grava é HandlePlanTrack, nunca
+	// entrada de usuário; erro aqui só apareceria se um pack futuro
+	// gravasse algo quebrado, e nesse caso payload fica nil no DTO.
+	_ = json.Unmarshal(p.Payload, &payload)
+	return proposalDTO{
+		ID:        p.ID,
+		GoalID:    p.GoalID,
+		Kind:      string(p.Kind),
+		Payload:   payload,
+		Rationale: p.Rationale,
+		Status:    string(p.Status),
+		ExpiresAt: formatTimePtr(p.ExpiresAt),
+		CreatedAt: p.CreatedAt.Format(time.RFC3339),
+	}
+}
+
+type jobAcceptedDTO struct {
+	JobID string `json:"jobId"`
+	State string `json:"state"`
 }
 
 type pageDTO[T any] struct {

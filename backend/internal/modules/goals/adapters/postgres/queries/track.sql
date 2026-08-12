@@ -29,3 +29,6 @@ WHERE milestone_id = ANY($1::uuid[]);
 -- name: GetMilestone :one
 SELECT id, track_id, goal_id, user_id, ordinal, title, completion_criteria, status, completed_at
 FROM milestone WHERE id = $1 AND user_id = $2;
+
+-- name: SupersedeTrack :exec
+UPDATE track SET superseded_at = now() WHERE id = $1;

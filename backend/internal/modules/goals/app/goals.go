@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -241,11 +242,22 @@ func (s *Service) ActivateGoal(ctx context.Context, in ActivateGoalInput) (*Acti
 			return err
 		}
 
-		if err := s.buildFallbackTrack(ctx, tx, g); err != nil {
+		// só monta a trilha do pack se ainda não existir uma — uma proposta
+		// do A1 pode já ter sido aceita antes da ativação (sondagem fechou
+		// com a meta em rascunho), e o fallback não deve apagar isso.
+		if _, err := postgres.GetCurrentTrack(ctx, tx, g.ID); errors.Is(err, postgres.ErrNotFound) {
+			if err := s.buildFallbackTrack(ctx, tx, g); err != nil {
+				return err
+			}
+		} else if err != nil {
 			return err
 		}
+
 		action, err := s.generateNextAction(ctx, tx, g, now, nil)
 		if err != nil {
+			return err
+		}
+		if err := enqueueGenerateNextAction(ctx, tx, g.ID, g.UserID, action.ID); err != nil {
 			return err
 		}
 

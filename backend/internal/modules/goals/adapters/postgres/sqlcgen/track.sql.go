@@ -203,6 +203,15 @@ func (q *Queries) ListMilestonesByTrack(ctx context.Context, trackID string) ([]
 	return items, nil
 }
 
+const supersedeTrack = `-- name: SupersedeTrack :exec
+UPDATE track SET superseded_at = now() WHERE id = $1
+`
+
+func (q *Queries) SupersedeTrack(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, supersedeTrack, id)
+	return err
+}
+
 const updateMilestone = `-- name: UpdateMilestone :exec
 UPDATE milestone SET status = $2, completed_at = $3 WHERE id = $1
 `

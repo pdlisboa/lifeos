@@ -149,6 +149,9 @@ func (s *Service) CompleteAction(ctx context.Context, in CompleteActionInput) (*
 		if err != nil {
 			return err
 		}
+		if err := enqueueGenerateNextAction(ctx, tx, g.ID, g.UserID, next.ID); err != nil {
+			return err
+		}
 
 		result = CompleteActionResult{Completed: a, Next: next, Session: sess}
 		return nil
@@ -196,6 +199,9 @@ func (s *Service) SkipAction(ctx context.Context, in SkipActionInput) (*SkipActi
 		hint := domain.NextDifficultyHint(in.Reason)
 		next, err := s.generateNextAction(ctx, tx, g, now, &hint)
 		if err != nil {
+			return err
+		}
+		if err := enqueueGenerateNextAction(ctx, tx, g.ID, g.UserID, next.ID); err != nil {
 			return err
 		}
 

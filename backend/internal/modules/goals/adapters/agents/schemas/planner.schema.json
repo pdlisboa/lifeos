@@ -4,7 +4,7 @@
   "title": "Saída do Planejador (A1)",
   "type": "object",
   "additionalProperties": false,
-  "required": ["milestones", "rationale"],
+  "required": ["milestones", "rationale", "noChangeNeeded"],
   "properties": {
     "milestones": {
       "type": "array",
@@ -14,7 +14,8 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["ordinal", "title", "completionCriteria", "competencyKeys"],
+        "required": ["ordinal", "title", "completionCriteria", "competencyKeys",
+                     "carriedOver", "sourceLibraryTitle"],
         "properties": {
           "ordinal": { "type": "integer", "minimum": 1 },
           "title": { "type": "string", "minLength": 10, "maxLength": 120 },
@@ -31,7 +32,6 @@
           },
           "carriedOver": {
             "type": "boolean",
-            "default": false,
             "description": "Marco já concluído, copiado de uma trilha anterior. Intocável."
           },
           "sourceLibraryTitle": {
@@ -49,7 +49,6 @@
     },
     "noChangeNeeded": {
       "type": "boolean",
-      "default": false,
       "description": "Numa revisão, dizer que a trilha está boa é resposta válida."
     }
   }

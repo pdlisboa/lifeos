@@ -22,7 +22,7 @@ func newFixture(t *testing.T) (*Service, string) {
 	if err != nil {
 		t.Fatalf("carregar packs: %v", err)
 	}
-	svc := NewService(pgtest.Pool(), reg)
+	svc := NewService(pgtest.Pool(), reg, nil, nil)
 	userID := pgtest.NewUser(t)
 	return svc, userID
 }

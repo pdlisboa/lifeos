@@ -18,4 +18,8 @@ export const handlers = [
       pendingProposals: 0,
     }),
   ),
+  // MetaDetailRoute consulta propostas pendentes pra decidir se mostra a aba
+  // "Proposta" — default sem nada pendente, testes que precisam de uma
+  // proposta sobrescrevem via server.use(...).
+  http.get(`${API_BASE}/proposals`, () => HttpResponse.json([])),
 ];

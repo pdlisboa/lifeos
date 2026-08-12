@@ -28,6 +28,7 @@ func RegisterRoutes(r chi.Router, h *Handler) {
 			r.Get("/projection", h.GetProjection)
 			r.Get("/consistency", h.GetConsistency)
 			r.Get("/track", h.GetTrack)
+			r.Post("/track", h.RequestTrackRevision)
 
 			r.Get("/action", h.GetPendingAction)
 			r.Post("/action", h.CreateUserAction)
@@ -49,4 +50,10 @@ func RegisterRoutes(r chi.Router, h *Handler) {
 	})
 
 	r.Get("/evidence/{evidenceId}", h.GetEvidence)
+
+	r.Route("/proposals", func(r chi.Router) {
+		r.Get("/", h.ListProposals)
+		r.Post("/{proposalId}/accept", h.AcceptProposal)
+		r.Post("/{proposalId}/reject", h.RejectProposal)
+	})
 }

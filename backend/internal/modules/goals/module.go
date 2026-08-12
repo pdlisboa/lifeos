@@ -12,7 +12,9 @@ import (
 	goalshttp "github.com/phablo/lifeos/internal/modules/goals/adapters/http"
 	"github.com/phablo/lifeos/internal/modules/goals/app"
 	"github.com/phablo/lifeos/internal/modules/goals/packs"
+	"github.com/phablo/lifeos/internal/platform/agents"
 	"github.com/phablo/lifeos/internal/platform/auth"
+	"github.com/phablo/lifeos/internal/platform/jobs"
 )
 
 type Module struct {
@@ -23,16 +25,25 @@ type Module struct {
 // New carrega e valida os domain packs no boot, com falha ruidosa
 // (04-agentes.md §4.6): um pack inválido não sobe — é pior descobrir isso
 // semanas depois, com dados gravados em cima de uma rubrica quebrada.
-func New(pool *pgxpool.Pool, users *auth.UserStore, logger *slog.Logger) (*Module, error) {
+// gateway pode ser nil — cmd/api passa nil (nunca chama agente direto,
+// só enfileira); cmd/worker passa um gateway de verdade e chama
+// RegisterJobs.
+func New(pool *pgxpool.Pool, users *auth.UserStore, logger *slog.Logger, gateway *agents.Gateway) (*Module, error) {
 	registry, err := packs.Load()
 	if err != nil {
 		return nil, fmt.Errorf("carregar domain packs: %w", err)
 	}
-	svc := app.NewService(pool, registry)
+	svc := app.NewService(pool, registry, gateway, logger)
 	h := &goalshttp.Handler{Service: svc, Users: users, Logger: logger}
 	return &Module{Service: svc, Handler: h}, nil
 }
 
 func (m *Module) RegisterRoutes(r chi.Router) {
 	goalshttp.RegisterRoutes(r, m.Handler)
+}
+
+// RegisterJobs pluga A1/A2 na fila de jobs — só cmd/worker chama isso.
+func (m *Module) RegisterJobs(w *jobs.Worker) {
+	w.Register("generate_next_action", m.Service.HandleGenerateNextAction)
+	w.Register("plan_track", m.Service.HandlePlanTrack)
 }

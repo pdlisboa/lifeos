@@ -95,11 +95,16 @@ func Pool() *pgxpool.Pool {
 
 // Reset limpa todo o estado do módulo Metas (TRUNCATE em cascata a partir de
 // app_user, que é a raiz de todas as FKs) para isolar um teste do outro sem
-// recriar o container a cada função.
+// recriar o container a cada função. job, outbox e processed_event são
+// tabelas de plataforma sem FK para app_user (job nem tem user_id — é uma
+// fila genérica), por isso entram num TRUNCATE à parte.
 func Reset(t *testing.T) {
 	t.Helper()
 	if _, err := Pool().Exec(context.Background(), "TRUNCATE TABLE app_user CASCADE"); err != nil {
 		t.Fatalf("pgtest: truncate: %v", err)
+	}
+	if _, err := Pool().Exec(context.Background(), "TRUNCATE TABLE job, outbox, processed_event"); err != nil {
+		t.Fatalf("pgtest: truncate plataforma: %v", err)
 	}
 }
 

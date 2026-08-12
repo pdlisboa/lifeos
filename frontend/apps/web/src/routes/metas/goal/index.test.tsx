@@ -5,7 +5,7 @@ import { http, HttpResponse } from "msw";
 import { server } from "@/test/server";
 import { API_BASE } from "@/test/api-base";
 import { renderRoute } from "@/test/render";
-import { makeDeltaPanel, makeGoal, makeTrack } from "@/test/fixtures";
+import { makeDeltaPanel, makeGoal, makeProposal, makeTrack } from "@/test/fixtures";
 import { MetaDetailRoute } from "./index";
 
 const GOAL_ID = "goal-detail";
@@ -98,6 +98,31 @@ describe("MetaDetailRoute", () => {
     await screen.findByText("Esta meta ainda não tem trilha definida.");
 
     expect(screen.getByRole("link", { name: "Registrar evidência" })).toHaveAttribute("href", `/metas/${GOAL_ID}/evidencia`);
+  });
+
+  it("sem proposta pendente, a aba Proposta não aparece", async () => {
+    server.use(
+      http.get(`${API_BASE}/goals/${GOAL_ID}`, () => HttpResponse.json(makeGoal({ id: GOAL_ID, status: "active" }))),
+      http.get(`${API_BASE}/goals/${GOAL_ID}/track`, () => HttpResponse.json(makeTrack({ milestones: [] }))),
+    );
+    renderDetail();
+    await screen.findByText("Esta meta ainda não tem trilha definida.");
+    expect(screen.queryByRole("button", { name: "Proposta" })).not.toBeInTheDocument();
+  });
+
+  it("com proposta de trilha pendente, mostra a aba Proposta e permite navegar até ela", async () => {
+    server.use(
+      http.get(`${API_BASE}/goals/${GOAL_ID}`, () => HttpResponse.json(makeGoal({ id: GOAL_ID, status: "active" }))),
+      http.get(`${API_BASE}/goals/${GOAL_ID}/track`, () => HttpResponse.json(makeTrack({ milestones: [] }))),
+      http.get(`${API_BASE}/proposals`, () => HttpResponse.json([makeProposal({ goalId: GOAL_ID, rationale: "Motivo da proposta" })])),
+    );
+    const user = userEvent.setup();
+    renderDetail();
+
+    const tab = await screen.findByRole("button", { name: "Proposta" });
+    await user.click(tab);
+
+    expect(await screen.findByText("Motivo da proposta")).toBeInTheDocument();
   });
 
   it("'Registrar sessão' alterna a visibilidade do formulário de sessão", async () => {

@@ -53,7 +53,7 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
-	svc := app.NewService(pool, reg)
+	svc := app.NewService(pool, reg, nil, nil)
 
 	goalID, err := seedGoGoal(ctx, pool, svc, userID)
 	if err != nil {

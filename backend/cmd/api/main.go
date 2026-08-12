@@ -53,7 +53,7 @@ func main() {
 
 	// Falha ruidosa no boot (04-agentes.md §4.6): um domain pack inválido
 	// não pode subir silenciosamente — é pior descobrir isso semanas depois.
-	goalsModule, err := goals.New(pool, users, logger)
+	goalsModule, err := goals.New(pool, users, logger, nil)
 	if err != nil {
 		logger.Error("carregar módulo goals", "err", err)
 		return

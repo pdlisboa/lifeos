@@ -97,6 +97,9 @@ func (s *Service) AnswerProbe(ctx context.Context, in AnswerProbeInput) (*ProbeS
 			if err := postgres.UpdateProbe(ctx, tx, probe); err != nil {
 				return err
 			}
+			if err := enqueuePlanTrack(ctx, tx, g.ID, g.UserID, ""); err != nil {
+				return err
+			}
 		}
 
 		result = ProbeStepResult{Probe: probe, NextQuestion: next}
@@ -123,6 +126,9 @@ func (s *Service) SkipProbe(ctx context.Context, userID, goalID string) (*domain
 			return err
 		}
 		if err := postgres.UpdateProbe(ctx, tx, p); err != nil {
+			return err
+		}
+		if err := enqueuePlanTrack(ctx, tx, g.ID, g.UserID, ""); err != nil {
 			return err
 		}
 		probe = p

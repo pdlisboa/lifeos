@@ -6,21 +6,36 @@ package app
 import (
 	"context"
 	"fmt"
+	"io"
+	"log/slog"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/phablo/lifeos/internal/modules/goals/domain"
 	"github.com/phablo/lifeos/internal/modules/goals/packs"
+	"github.com/phablo/lifeos/internal/platform/agents"
 )
 
 type Service struct {
 	Pool  *pgxpool.Pool
 	Packs *packs.Registry
+	// Gateway pode ser nil — só o worker constrói um de verdade (cmd/worker,
+	// que é o único processo que chama agente). cmd/api enfileira jobs, mas
+	// nunca chama o gateway direto (01-arquitetura.md §5.1: LLM não pode
+	// estar no caminho crítico de request HTTP).
+	Gateway *agents.Gateway
+	Logger  *slog.Logger
 }
 
-func NewService(pool *pgxpool.Pool, reg *packs.Registry) *Service {
-	return &Service{Pool: pool, Packs: reg}
+// NewService aceita logger nil (vira io.Discard) — a maioria dos testes não
+// se importa com log nenhum, só os handlers de job (agent_jobs.go) logam de
+// verdade.
+func NewService(pool *pgxpool.Pool, reg *packs.Registry, gateway *agents.Gateway, logger *slog.Logger) *Service {
+	if logger == nil {
+		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+	}
+	return &Service{Pool: pool, Packs: reg, Gateway: gateway, Logger: logger}
 }
 
 func (s *Service) withTx(ctx context.Context, fn func(tx pgx.Tx) error) error {
