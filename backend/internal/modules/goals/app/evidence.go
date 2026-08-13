@@ -105,6 +105,7 @@ type EvidenceCard struct {
 	Evidence      domain.Evidence
 	CompetencyIDs []string
 	LevelsAtTime  map[string]int
+	EvalCase      *domain.EvalCase
 }
 
 // ListEvidence serve o museu, opcionalmente filtrado por competência tocada
@@ -136,6 +137,10 @@ func (s *Service) ListEvidence(ctx context.Context, userID, goalID string, compe
 	if err != nil {
 		return nil, err
 	}
+	evalCasesByEvidence, err := postgres.ListEvalCasesForEvidences(ctx, s.Pool, ids)
+	if err != nil {
+		return nil, err
+	}
 
 	events, err := postgres.ListLevelEventsForGoal(ctx, s.Pool, goalID)
 	if err != nil {
@@ -158,7 +163,11 @@ func (s *Service) ListEvidence(ctx context.Context, userID, goalID string, compe
 		if compIDs == nil {
 			compIDs = []string{}
 		}
-		cards[i] = EvidenceCard{Evidence: e, CompetencyIDs: compIDs, LevelsAtTime: levels}
+		var evalCase *domain.EvalCase
+		if ec, ok := evalCasesByEvidence[e.ID]; ok {
+			evalCase = &ec
+		}
+		cards[i] = EvidenceCard{Evidence: e, CompetencyIDs: compIDs, LevelsAtTime: levels, EvalCase: evalCase}
 	}
 	return cards, nil
 }

@@ -50,6 +50,8 @@ func RegisterRoutes(r chi.Router, h *Handler) {
 	})
 
 	r.Get("/evidence/{evidenceId}", h.GetEvidence)
+	r.Post("/evidence/{evidenceId}/eval-case", h.MarkEvidenceEvalCase)
+	r.Delete("/evidence/{evidenceId}/eval-case", h.UnmarkEvidenceEvalCase)
 
 	r.Route("/proposals", func(r chi.Router) {
 		r.Get("/", h.ListProposals)

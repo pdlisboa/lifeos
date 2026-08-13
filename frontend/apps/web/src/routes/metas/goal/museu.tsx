@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { components } from "@lifeos/api-client";
 import { useGoal } from "@/features/goal/use-goals";
 import { useEvidenceList } from "@/features/evidence/use-evidence";
+import { EvalCaseButton } from "@/features/evidence/eval-case-button";
 import { ProblemError } from "@/components/problem-error";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -102,6 +103,15 @@ export function MuseuView({ goalId }: { goalId: string }) {
               <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap rounded bg-bg-base p-2 font-mono text-xs text-fg-secondary">
                 {evidenceContent(e)}
               </pre>
+              <div className="mt-2">
+                <EvalCaseButton
+                  goalId={goalId}
+                  evidenceId={e.id}
+                  competencies={competencies}
+                  evalCase={e.evalCase}
+                  highlightCompetencyIds={e.competencyIds}
+                />
+              </div>
             </li>
           ))}
         </ul>

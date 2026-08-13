@@ -442,15 +442,16 @@ func toSessionDTO(s domain.Session) sessionDTO {
 }
 
 type evidenceDTO struct {
-	ID           string  `json:"id"`
-	Kind         string  `json:"kind"`
-	Title        *string `json:"title"`
-	Body         *string `json:"body"`
-	BlobURL      *string `json:"blobUrl"`
-	ExternalURL  *string `json:"externalUrl"`
-	Language     *string `json:"language"`
-	SupersedesID *string `json:"supersedesId"`
-	CreatedAt    string  `json:"createdAt"`
+	ID           string       `json:"id"`
+	Kind         string       `json:"kind"`
+	Title        *string      `json:"title"`
+	Body         *string      `json:"body"`
+	BlobURL      *string      `json:"blobUrl"`
+	ExternalURL  *string      `json:"externalUrl"`
+	Language     *string      `json:"language"`
+	SupersedesID *string      `json:"supersedesId"`
+	CreatedAt    string       `json:"createdAt"`
+	EvalCase     *evalCaseDTO `json:"evalCase"`
 }
 
 func toEvidenceDTO(e *domain.Evidence) evidenceDTO {
@@ -466,6 +467,27 @@ func toEvidenceDTO(e *domain.Evidence) evidenceDTO {
 	}
 }
 
+type evalCaseScoreDTO struct {
+	CompetencyID string `json:"competencyId"`
+	Level        int    `json:"level"`
+}
+
+type evalCaseDTO struct {
+	Note   string             `json:"note"`
+	Scores []evalCaseScoreDTO `json:"scores"`
+}
+
+func toEvalCaseDTO(ec *domain.EvalCase) *evalCaseDTO {
+	if ec == nil {
+		return nil
+	}
+	scores := make([]evalCaseScoreDTO, len(ec.Scores))
+	for i, s := range ec.Scores {
+		scores[i] = evalCaseScoreDTO{CompetencyID: s.CompetencyID, Level: s.Level}
+	}
+	return &evalCaseDTO{Note: ec.Note, Scores: scores}
+}
+
 type evidenceCardDTO struct {
 	evidenceDTO
 	CompetencyIDs     []string       `json:"competencyIds"`
@@ -479,8 +501,10 @@ type evidenceCardDTO struct {
 // manual (§7 da UX) e o nível point-in-time vem direto do histórico de
 // eventos, que existe desde a Fatia 1.
 func toEvidenceCardDTO(c app.EvidenceCard) evidenceCardDTO {
+	dto := toEvidenceDTO(&c.Evidence)
+	dto.EvalCase = toEvalCaseDTO(c.EvalCase)
 	return evidenceCardDTO{
-		evidenceDTO:       toEvidenceDTO(&c.Evidence),
+		evidenceDTO:       dto,
 		CompetencyIDs:     c.CompetencyIDs,
 		AssessmentSummary: nil,
 		LevelsAtTime:      c.LevelsAtTime,

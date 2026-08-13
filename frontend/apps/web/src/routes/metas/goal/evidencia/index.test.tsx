@@ -89,7 +89,7 @@ describe("EvidenciaRoute", () => {
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
   });
 
-  it("registra evidência de código com actionId quando o checkbox está marcado, e navega no sucesso", async () => {
+  it("registra evidência de código com actionId quando o checkbox está marcado, mostra confirmação e navega ao concluir", async () => {
     setupGoalAndAction({ hasAction: true });
     let requestBody: any;
     server.use(
@@ -105,9 +105,12 @@ describe("EvidenciaRoute", () => {
     await user.type(screen.getByLabelText("Código"), "func main, sem chaves nesse texto de teste");
     await user.click(screen.getByRole("button", { name: "Registrar" }));
 
-    await waitFor(() => expect(screen.getByText("tela de detalhe da meta")).toBeInTheDocument());
+    expect(await screen.findByText("Evidência registrada")).toBeInTheDocument();
     expect(requestBody).toMatchObject({ kind: "code_snippet", body: "func main, sem chaves nesse texto de teste" });
     expect(requestBody.actionId).toEqual(expect.any(String));
+
+    await user.click(screen.getByRole("button", { name: "Concluir" }));
+    await waitFor(() => expect(screen.getByText("tela de detalhe da meta")).toBeInTheDocument());
   });
 
   it("desmarcar o checkbox omite actionId do envio", async () => {

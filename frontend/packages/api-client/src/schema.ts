@@ -1486,6 +1486,79 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/evidence/{evidenceId}/eval-case": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                evidenceId: components["parameters"]["EvidenceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Marca a evidência como caso de eval do A3 (04-agentes.md §6.1)
+         * @description Captura só — nenhum agente é chamado aqui. Marcar de novo substitui a
+         *     nota e o gabarito anteriores (essa marcação não é imutável como a
+         *     evidência em si, RN-06). `make eval-export` lê o conjunto marcado e
+         *     gera os arquivos em `evals/assessor/`.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    evidenceId: components["parameters"]["EvidenceId"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        note: string;
+                        scores: components["schemas"]["EvalCaseScore"][];
+                    };
+                };
+            };
+            responses: {
+                /** @description marcada */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Evidence"];
+                    };
+                };
+            };
+        };
+        /** Desmarca — remove nota e gabarito */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    evidenceId: components["parameters"]["EvidenceId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description desmarcada */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/evidence/{evidenceId}/assessment": {
         parameters: {
             query?: never;
@@ -2322,6 +2395,23 @@ export interface components {
             supersedesId?: string | null;
             /** Format: date-time */
             createdAt: string;
+            /**
+             * @description Presente quando você marcou esta evidência como caso de eval
+             *     (04-agentes.md §6.1). `null` é o estado normal — a maioria das
+             *     evidências nunca é marcada.
+             */
+            evalCase?: components["schemas"]["EvalCase"] | null;
+        };
+        EvalCaseScore: {
+            /** Format: uuid */
+            competencyId: string;
+            level: number;
+        };
+        EvalCase: {
+            /** @description por que este caso importa — o motivo de existir (§6.1) */
+            note: string;
+            /** @description gabarito humano — o nível que você daria por competência */
+            scores: components["schemas"]["EvalCaseScore"][];
         };
         EvidenceCard: components["schemas"]["Evidence"] & {
             competencyIds?: string[];

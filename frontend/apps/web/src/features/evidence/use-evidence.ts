@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createEvidence, fetchEvidence, fetchEvidenceList } from "./api";
+import { createEvidence, fetchEvidence, fetchEvidenceList, markEvalCase, unmarkEvalCase } from "./api";
 import type { EvidenceKind } from "./api";
 
 /**
@@ -39,5 +39,37 @@ export function useEvidenceList(goalId: string, opts: { competencyId?: string; o
   return useQuery({
     queryKey: ["evidence", goalId, opts.competencyId ?? null, opts.order ?? "asc"],
     queryFn: () => fetchEvidenceList(goalId, opts),
+  });
+}
+
+// Captura de material de eval pro A3 (04-agentes.md §6.1) — invalida a
+// listagem (museu) e o detalhe pra refletir a marcação sem precisar de F5.
+export function useMarkEvalCase(goalId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      evidenceId,
+      note,
+      scores,
+    }: {
+      evidenceId: string;
+      note: string;
+      scores: { competencyId: string; level: number }[];
+    }) => markEvalCase(evidenceId, { note, scores }),
+    onSuccess: (_data, { evidenceId }) => {
+      qc.invalidateQueries({ queryKey: ["evidence", goalId] });
+      qc.invalidateQueries({ queryKey: ["evidenceDetail", evidenceId] });
+    },
+  });
+}
+
+export function useUnmarkEvalCase(goalId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (evidenceId: string) => unmarkEvalCase(evidenceId),
+    onSuccess: (_data, evidenceId) => {
+      qc.invalidateQueries({ queryKey: ["evidence", goalId] });
+      qc.invalidateQueries({ queryKey: ["evidenceDetail", evidenceId] });
+    },
   });
 }

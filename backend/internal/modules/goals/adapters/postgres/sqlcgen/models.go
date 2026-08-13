@@ -106,6 +106,19 @@ type EvidenceCompetency struct {
 	CompetencyID string
 }
 
+type EvidenceEvalCase struct {
+	EvidenceID string
+	Note       string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+}
+
+type EvidenceEvalCaseScore struct {
+	EvidenceID   string
+	CompetencyID string
+	Level        int32
+}
+
 type Goal struct {
 	ID               string
 	UserID           string

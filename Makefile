@@ -1,4 +1,4 @@
-.PHONY: build up down restart logs ps migrate-up migrate-status create-user seed test vet fmt sqlc-generate sqlc-diff
+.PHONY: build up down restart logs ps migrate-up migrate-status create-user seed eval-export test vet fmt sqlc-generate sqlc-diff
 
 build:
 	docker compose build
@@ -34,6 +34,18 @@ create-user:
 # uso opcional: make seed SEED_EMAIL=dev@lifeos.local (senão usa o usuário mais antigo)
 seed:
 	docker compose run --rm -e ENV=development -e SEED_EMAIL=$(SEED_EMAIL) --entrypoint /app/seed api
+
+# exporta os casos marcados como eval (evidence_eval_case, 04-agentes.md
+# §6.1) para backend/internal/modules/goals/adapters/agents/evals/assessor/
+# — o conjunto que vai medir o A3 quando ele existir (Fatia 4). Puro dado:
+# não chama agente nenhum. --user evita que os arquivos fiquem gravados como
+# root no host (a imagem roda como "nobody"; aqui sobrepomos pro seu UID).
+eval-export:
+	mkdir -p backend/internal/modules/goals/adapters/agents/evals/assessor
+	docker compose run --rm \
+		--user "$$(id -u):$$(id -g)" \
+		--volume "$$(pwd)/backend/internal/modules/goals/adapters/agents/evals:/app/evals" \
+		--entrypoint /app/evalexport api
 
 test:
 	cd backend && go test ./...

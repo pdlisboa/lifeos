@@ -5,6 +5,7 @@ import { ProblemError } from "@/components/problem-error";
 import { useGoal } from "@/features/goal/use-goals";
 import { useGoalAction } from "@/features/action/use-actions";
 import { useCreateEvidence } from "@/features/evidence/use-evidence";
+import { EvalCaseButton } from "@/features/evidence/eval-case-button";
 import { cn } from "@/lib/cn";
 import type { EvidenceKind } from "@/features/evidence/api";
 
@@ -26,6 +27,7 @@ export function EvidenciaRoute() {
   const [externalUrl, setExternalUrl] = useState("");
   const [linkToAction, setLinkToAction] = useState(true);
   const [touchedCompetencyIds, setTouchedCompetencyIds] = useState<string[]>([]);
+  const [createdEvidenceId, setCreatedEvidenceId] = useState<string | null>(null);
 
   const createEvidence = useCreateEvidence(goalId!);
 
@@ -37,7 +39,7 @@ export function EvidenciaRoute() {
 
   const submit = async () => {
     try {
-      await createEvidence.mutateAsync({
+      const created = await createEvidence.mutateAsync({
         kind,
         title: title.trim() || undefined,
         body: kind !== "repo_link" ? body.trim() || undefined : undefined,
@@ -45,11 +47,37 @@ export function EvidenciaRoute() {
         actionId: linkToAction ? action?.id : undefined,
         competencyIds: touchedCompetencyIds.length > 0 ? touchedCompetencyIds : undefined,
       });
-      navigate(`/metas/${goalId}`);
+      if (created.evidence) {
+        setCreatedEvidenceId(created.evidence.id);
+      } else {
+        navigate(`/metas/${goalId}`);
+      }
     } catch {
       // erro fica em createEvidence.error, renderizado abaixo
     }
   };
+
+  if (createdEvidenceId) {
+    return (
+      <div className="mx-auto max-w-lg space-y-6">
+        <h1 className="text-lg font-medium text-fg-primary">Evidência registrada</h1>
+        <p className="text-sm text-fg-secondary">
+          Se essa avaliação for óbvia pra você agora, esse é o melhor momento pra guardar como caso de eval — o
+          julgamento fica mais difícil de reconstruir depois (04-agentes.md §6.1).
+        </p>
+        <EvalCaseButton
+          goalId={goalId!}
+          evidenceId={createdEvidenceId}
+          competencies={goal?.competencies ?? []}
+          evalCase={null}
+          highlightCompetencyIds={touchedCompetencyIds}
+        />
+        <div className="flex justify-end">
+          <Button onClick={() => navigate(`/metas/${goalId}`)}>Concluir</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-lg space-y-6">

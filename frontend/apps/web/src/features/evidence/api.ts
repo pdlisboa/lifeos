@@ -35,3 +35,18 @@ export function fetchEvidenceList(
     }),
   );
 }
+
+// Captura de material de eval pro A3 (04-agentes.md §6.1) — puro dado,
+// nenhum agente é chamado. Marcar de novo substitui nota e gabarito.
+export function markEvalCase(
+  evidenceId: string,
+  body: { note: string; scores: { competencyId: string; level: number }[] },
+) {
+  return unwrap(
+    api.POST("/evidence/{evidenceId}/eval-case", { params: { path: { evidenceId } }, body }),
+  );
+}
+
+export async function unmarkEvalCase(evidenceId: string) {
+  await api.DELETE("/evidence/{evidenceId}/eval-case", { params: { path: { evidenceId } } });
+}

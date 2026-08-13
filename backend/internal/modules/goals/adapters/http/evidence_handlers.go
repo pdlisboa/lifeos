@@ -69,12 +69,79 @@ func (h *Handler) GetEvidence(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	ev, err := h.Service.GetEvidence(r.Context(), uid, chi.URLParam(r, "evidenceId"))
+	evidenceID := chi.URLParam(r, "evidenceId")
+	ev, err := h.Service.GetEvidence(r.Context(), uid, evidenceID)
 	if err != nil {
 		writeAppError(w, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, toEvidenceDTO(ev))
+	ec, err := h.Service.GetEvalCase(r.Context(), uid, evidenceID)
+	if err != nil {
+		writeAppError(w, err)
+		return
+	}
+	dto := toEvidenceDTO(ev)
+	dto.EvalCase = toEvalCaseDTO(ec)
+	httpx.WriteJSON(w, http.StatusOK, dto)
+}
+
+type markEvalCaseRequest struct {
+	Note   string             `json:"note"`
+	Scores []evalCaseScoreDTO `json:"scores"`
+}
+
+// MarkEvidenceEvalCase captura o gabarito humano pro conjunto de eval do A3
+// (04-agentes.md §6.1) — puro dado, nenhum agente é chamado. Marcar de novo
+// substitui nota e gabarito anteriores.
+func (h *Handler) MarkEvidenceEvalCase(w http.ResponseWriter, r *http.Request) {
+	uid, ok := requireUser(w, r)
+	if !ok {
+		return
+	}
+	evidenceID := chi.URLParam(r, "evidenceId")
+
+	var req markEvalCaseRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.WriteProblem(w, http.StatusBadRequest, "Corpo inválido", err.Error(), "")
+		return
+	}
+	scores := make([]domain.EvalCaseScore, len(req.Scores))
+	for i, s := range req.Scores {
+		scores[i] = domain.EvalCaseScore{CompetencyID: s.CompetencyID, Level: s.Level}
+	}
+
+	if _, err := h.Service.MarkEvidenceAsEvalCase(r.Context(), app.MarkEvidenceEvalCaseInput{
+		UserID: uid, EvidenceID: evidenceID, Note: req.Note, Scores: scores,
+	}); err != nil {
+		writeAppError(w, err)
+		return
+	}
+
+	ev, err := h.Service.GetEvidence(r.Context(), uid, evidenceID)
+	if err != nil {
+		writeAppError(w, err)
+		return
+	}
+	ec, err := h.Service.GetEvalCase(r.Context(), uid, evidenceID)
+	if err != nil {
+		writeAppError(w, err)
+		return
+	}
+	dto := toEvidenceDTO(ev)
+	dto.EvalCase = toEvalCaseDTO(ec)
+	httpx.WriteJSON(w, http.StatusOK, dto)
+}
+
+func (h *Handler) UnmarkEvidenceEvalCase(w http.ResponseWriter, r *http.Request) {
+	uid, ok := requireUser(w, r)
+	if !ok {
+		return
+	}
+	if err := h.Service.UnmarkEvidenceEvalCase(r.Context(), uid, chi.URLParam(r, "evidenceId")); err != nil {
+		writeAppError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) ListEvidence(w http.ResponseWriter, r *http.Request) {

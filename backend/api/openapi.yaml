@@ -754,6 +754,41 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Evidence' }
 
+  /evidence/{evidenceId}/eval-case:
+    parameters: [ { $ref: '#/components/parameters/EvidenceId' } ]
+    post:
+      tags: [evidence]
+      summary: Marca a evidência como caso de eval do A3 (04-agentes.md §6.1)
+      description: |
+        Captura só — nenhum agente é chamado aqui. Marcar de novo substitui a
+        nota e o gabarito anteriores (essa marcação não é imutável como a
+        evidência em si, RN-06). `make eval-export` lê o conjunto marcado e
+        gera os arquivos em `evals/assessor/`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [note, scores]
+              properties:
+                note:   { type: string, minLength: 1 }
+                scores:
+                  type: array
+                  minItems: 1
+                  items: { $ref: '#/components/schemas/EvalCaseScore' }
+      responses:
+        '200':
+          description: marcada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Evidence' }
+    delete:
+      tags: [evidence]
+      summary: Desmarca — remove nota e gabarito
+      responses:
+        '204': { description: desmarcada }
+
   /evidence/{evidenceId}/assessment:
     parameters: [ { $ref: '#/components/parameters/EvidenceId' } ]
     get:
@@ -1381,6 +1416,33 @@ components:
         language:     { type: [string, 'null'] }
         supersedesId: { type: [string, 'null'], format: uuid }
         createdAt:    { type: string, format: date-time }
+        evalCase:
+          oneOf:
+            - { $ref: '#/components/schemas/EvalCase' }
+            - { type: 'null' }
+          description: |
+            Presente quando você marcou esta evidência como caso de eval
+            (04-agentes.md §6.1). `null` é o estado normal — a maioria das
+            evidências nunca é marcada.
+
+    EvalCaseScore:
+      type: object
+      required: [competencyId, level]
+      properties:
+        competencyId: { type: string, format: uuid }
+        level:        { type: integer, minimum: 0, maximum: 5 }
+
+    EvalCase:
+      type: object
+      required: [note, scores]
+      properties:
+        note:
+          type: string
+          description: por que este caso importa — o motivo de existir (§6.1)
+        scores:
+          type: array
+          items: { $ref: '#/components/schemas/EvalCaseScore' }
+          description: gabarito humano — o nível que você daria por competência
 
     EvidenceCard:
       allOf:
