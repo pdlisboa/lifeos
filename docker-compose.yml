@@ -1,5 +1,6 @@
-# api + worker + postgres. Caddy (TLS público) e backup entram quando
-# houver o que servir/proteger de fato (01-arquitetura.md §10.1).
+# api + worker + web + postgres. Caddy (TLS público) e backup entram quando
+# houver o que proteger de fato em produção real (01-arquitetura.md §10.1) —
+# por ora `web` serve o estático direto via nginx, sem TLS.
 #
 # api e worker saem da mesma imagem (backend/Dockerfile), só o entrypoint
 # muda — uma build, dois processos (01-arquitetura.md §7). worker é quem
@@ -64,6 +65,20 @@ services:
       LLM_PRICE_STRONG_IN_PER_M: ${LLM_PRICE_STRONG_IN_PER_M:-0}
       LLM_PRICE_STRONG_OUT_PER_M: ${LLM_PRICE_STRONG_OUT_PER_M:-0}
       LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-30}
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # embutido no bundle em build time (Vite), não é env de runtime —
+        # se mudar API_PORT/host, precisa rebuildar a imagem do web.
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080/api/v1}
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "${WEB_PORT:-8081}:80"
 
 volumes:
   pgdata:
